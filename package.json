@@ -1,0 +1,46 @@
+{
+  "name": "zannypay",
+  "version": "1.0.0",
+  "description": "ZannyPay mobile application",
+  "main": "node_modules/expo/AppEntry.js",
+  "private": true,
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "^15.0.3",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-navigation/bottom-tabs": "^7.4.7",
+    "@react-navigation/native": "^7.1.17",
+    "@react-navigation/native-stack": "^7.3.10",
+    "expo": "~54.0.0",
+    "expo-constants": "*",
+    "expo-clipboard": "*",
+    "expo-sharing": "*",
+    "expo-print": "*",
+    "react-native-view-shot": "4.0.3",
+    "expo-font": "*",
+    "expo-splash-screen": "*",
+    "@expo-google-fonts/inter": "*",
+    "expo-image-picker": "*",
+    "expo-linear-gradient": "~15.0.8",
+    "expo-linking": "*",
+    "expo-local-authentication": "*",
+    "expo-secure-store": "*",
+    "expo-web-browser": "*",
+    "expo-status-bar": "~3.0.9",
+    "react": "19.1.0",
+    "react-native": "0.81.4",
+    "react-native-qrcode-svg": "^6.3.1",
+    "react-native-safe-area-context": "~5.6.0",
+    "react-native-screens": "~4.16.0",
+    "react-native-svg": "*",
+    "expo-haptics": "*"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.20.0"
+  }
+}
