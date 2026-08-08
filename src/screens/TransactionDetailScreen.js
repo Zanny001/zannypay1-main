@@ -105,7 +105,7 @@ export default function TransactionDetailScreen({ route, navigation }) {
       </head>
       <body>
         <div class="card">
-          <div class="logo-row"><div class="logo-circle">Z</div><div class="logo-name">Zannypay</div></div>
+          <div class="logo-row"><div class="logo-circle">Z</div><div class="logo-name">ZannyPay</div></div>
           <div class="amount">${formatCurrency(amount)}</div>
           <div class="status">${statusLabel} Transaction</div>
           <div class="date">${formatDate(transactionTimestamp)}</div>
@@ -115,7 +115,7 @@ export default function TransactionDetailScreen({ route, navigation }) {
           <div class="row"><span class="label">Reference</span><span class="value">${reference}</span></div>
           <div class="row"><span class="label">Payer</span><span class="value">${user?.name || ''} · ${user?.accountNumber || ''}</span></div>
           <div class="dashed"></div>
-          <div class="footer-text">Enjoy seamless, secure transfers with Zannypay.</div>
+          <div class="footer-text">Enjoy seamless, secure transfers with ZannyPay.</div>
         </div>
       </body>
     </html>
@@ -209,7 +209,7 @@ export default function TransactionDetailScreen({ route, navigation }) {
               <View style={styles.logoCircle}>
                 <Text style={styles.logoText}>Z</Text>
               </View>
-              <Text style={styles.logoName}>Zannypay</Text>
+              <Text style={styles.logoName}>ZannyPay</Text>
             </View>
 
             <View style={styles.cardHeader}>
@@ -270,7 +270,7 @@ export default function TransactionDetailScreen({ route, navigation }) {
                 <Text style={styles.detailLabel}>Payer</Text>
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text style={styles.detailValue}>{user?.name}</Text>
-                  <Text style={styles.subDetail}>Zannypay | {user?.accountNumber}</Text>
+                  <Text style={styles.subDetail}>ZannyPay | {user?.accountNumber}</Text>
                 </View>
               </View>
 
@@ -291,7 +291,7 @@ export default function TransactionDetailScreen({ route, navigation }) {
               </View>
             </View>
 
-            <Text style={styles.receiptFooterText}>Enjoy seamless, secure transfers with Zannypay.</Text>
+            <Text style={styles.receiptFooterText}>Enjoy seamless, secure transfers with ZannyPay.</Text>
           </ViewShot>
 
           {renderSerratedEdge(true)}

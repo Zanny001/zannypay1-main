@@ -59,7 +59,7 @@ export default function ProfileInfoScreen({ navigation }) {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         <View style={styles.avatarWrap}>
           <Avatar uri={user?.profileImage} name={user?.name} size={96} fontSize={36} />
-          <Text style={[styles.name, { color: theme.text }]}>{user?.name || 'Zannypay Member'}</Text>
+          <Text style={[styles.name, { color: theme.text }]}>{user?.name || 'ZannyPay Member'}</Text>
           <TouchableOpacity style={[styles.tierPill, { backgroundColor: kycTier >= 2 ? `${theme.success}20` : `${theme.warning}20` }]} onPress={() => navigation.navigate('KYC')}>
             <Ionicons name="shield-checkmark" size={13} color={kycTier >= 2 ? theme.success : theme.warning} />
             <Text style={[styles.tierPillText, { color: kycTier >= 2 ? theme.success : theme.warning }]}>

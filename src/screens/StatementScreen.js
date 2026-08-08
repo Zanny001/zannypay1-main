@@ -61,7 +61,7 @@ export default function StatementScreen({ navigation }) {
       <html>
         <head><meta name="viewport" content="width=device-width, initial-scale=1" /></head>
         <body style="font-family: -apple-system, Helvetica, Arial, sans-serif; padding: 24px; color: #1A1523;">
-          <h2 style="margin-bottom: 4px;">Zannypay Account Statement</h2>
+          <h2 style="margin-bottom: 4px;">ZannyPay Account Statement</h2>
           <p style="color: #847F94; margin-top: 0;">${user?.name || ''} · ${user?.accountNumber || ''}</p>
           <p style="color: #847F94; font-size: 13px;">Period: ${range.label} · Generated ${formatDate(new Date().toISOString())}</p>
 
@@ -82,7 +82,7 @@ export default function StatementScreen({ navigation }) {
             <tbody>${rows || '<tr><td colspan="4" style="padding:16px; text-align:center; color:#847F94;">No transactions in this period.</td></tr>'}</tbody>
           </table>
 
-          <p style="color:#847F94; font-size: 11px; margin-top: 30px;">This statement was generated on-device by the Zannypay app and reflects the last 50 transactions synced to this account.</p>
+          <p style="color:#847F94; font-size: 11px; margin-top: 30px;">This statement was generated on-device by the ZannyPay app and reflects the last 50 transactions synced to this account.</p>
         </body>
       </html>
     `;
@@ -94,7 +94,7 @@ export default function StatementScreen({ navigation }) {
       const { uri } = await Print.printToFileAsync({ html: buildStatementHtml() });
       const isAvailable = await Sharing.isAvailableAsync();
       if (isAvailable) {
-        await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Zannypay Statement', UTI: 'com.adobe.pdf' });
+        await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'ZannyPay Statement', UTI: 'com.adobe.pdf' });
       } else {
         alert('Statement Ready', `Saved to: ${uri}`, null, { type: 'success' });
       }

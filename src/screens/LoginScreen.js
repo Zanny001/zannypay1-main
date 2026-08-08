@@ -68,7 +68,7 @@ export default function LoginScreen({ navigation }) {
     }
 
     const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'Login to Zannypay',
+      promptMessage: 'Login to ZannyPay',
       fallbackLabel: 'Use PIN',
     });
     if (!result.success) return;

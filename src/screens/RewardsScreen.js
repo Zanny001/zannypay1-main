@@ -9,6 +9,8 @@ import { useWallet } from '../context/WalletContext';
 import { useAlert } from '../context/AlertContext';
 import AnimatedProgressBar from '../components/AnimatedProgressBar';
 import FadeInView from '../components/FadeInView';
+import Confetti from '../components/Confetti';
+import AnimatedNumber from '../components/AnimatedNumber';
 
 // Real tiers derived from the real rewardPoints total — no fabricated
 // coupon counts or countdown timers.
@@ -33,8 +35,10 @@ export default function RewardsScreen() {
   const { user, dailyCheckIn } = useWallet();
   const navigation = useNavigation();
   const [checkingIn, setCheckingIn] = useState(false);
+  const [celebration, setCelebration] = useState(null); // { count } while a confetti burst is playing, else null
 
   const points = user?.rewardPoints || 0;
+  const streak = user?.checkInStreak || 0;
   const { current, next } = getTier(points);
   const progressToNext = next ? Math.min(100, (points / next.min) * 100) : 100;
   const isCheckedInToday = user?.lastCheckIn
@@ -54,7 +58,24 @@ export default function RewardsScreen() {
       alert('Already Checked In', "You've already claimed today's reward. Come back tomorrow!", null, { type: 'info' });
       return;
     }
-    alert('Reward Claimed! 🎉', `+10 points added. You now have ${res.rewardPoints} points.`, null, { type: 'success' });
+
+    // A milestone streak gets a bigger burst and its own message; an
+    // ordinary day still gets a small celebration rather than a flat
+    // alert box, so checking in feels rewarding every time, not just on
+    // round numbers.
+    setCelebration({ count: res.milestone ? 60 : 24 });
+    setTimeout(() => setCelebration(null), 1400);
+
+    if (res.milestone) {
+      alert(
+        `${res.milestone}-Day Streak! 🔥`,
+        `You've checked in ${res.milestone} days in a row — +${res.pointsEarned} points (${res.rewardPoints} total).`,
+        null,
+        { type: 'success' }
+      );
+    } else {
+      alert('Reward Claimed! 🎉', `+${res.pointsEarned} points added. You now have ${res.rewardPoints} points.`, null, { type: 'success' });
+    }
   };
 
   return (
@@ -65,34 +86,46 @@ export default function RewardsScreen() {
 
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         <FadeInView>
-          <LinearGradient colors={gradients.gold} style={styles.heroCard}>
-            <View style={styles.heroTopRow}>
-              <MaterialCommunityIcons name={current.icon} size={26} color="#1A1523" />
-              <Text style={styles.tierLabel}>{current.name} Tier</Text>
-            </View>
-            <Text style={styles.pointsValue}>
-              {points.toLocaleString()} <Text style={styles.pts}>PTS</Text>
-            </Text>
+          <View style={{ position: 'relative' }}>
+            <LinearGradient colors={gradients.gold} style={styles.heroCard}>
+              <View style={styles.heroTopRow}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <MaterialCommunityIcons name={current.icon} size={26} color="#1A1523" />
+                  <Text style={styles.tierLabel}>{current.name} Tier</Text>
+                </View>
+                {streak > 0 && (
+                  <View style={styles.streakBadge}>
+                    <Ionicons name="flame" size={15} color="#EA580C" />
+                    <Text style={styles.streakText}>{streak} day{streak === 1 ? '' : 's'}</Text>
+                  </View>
+                )}
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+                <AnimatedNumber value={points} format={(n) => Math.round(n).toLocaleString()} style={styles.pointsValue} />
+                <Text style={styles.pts}> PTS</Text>
+              </View>
 
-            {next ? (
-              <>
-                <AnimatedProgressBar percentage={progressToNext} color="#1A1523" trackColor="rgba(26,21,35,0.15)" />
-                <Text style={styles.nextTierText}>{next.min - points} points to {next.name}</Text>
-              </>
-            ) : (
-              <Text style={styles.nextTierText}>You've reached the highest tier 🎉</Text>
-            )}
+              {next ? (
+                <>
+                  <AnimatedProgressBar percentage={progressToNext} color="#1A1523" trackColor="rgba(26,21,35,0.15)" />
+                  <Text style={styles.nextTierText}>{next.min - points} points to {next.name}</Text>
+                </>
+              ) : (
+                <Text style={styles.nextTierText}>You've reached the highest tier 🎉</Text>
+              )}
 
-            <TouchableOpacity
-              style={[styles.claimBtn, isCheckedInToday && styles.claimBtnDisabled]}
-              onPress={handleCheckIn}
-              disabled={isCheckedInToday || checkingIn}
-            >
-              <Text style={[styles.claimBtnText, isCheckedInToday && styles.claimBtnTextDisabled]}>
-                {isCheckedInToday ? 'Checked In Today' : checkingIn ? 'Checking in…' : 'Daily Check-In +10'}
-              </Text>
-            </TouchableOpacity>
-          </LinearGradient>
+              <TouchableOpacity
+                style={[styles.claimBtn, isCheckedInToday && styles.claimBtnDisabled]}
+                onPress={handleCheckIn}
+                disabled={isCheckedInToday || checkingIn}
+              >
+                <Text style={[styles.claimBtnText, isCheckedInToday && styles.claimBtnTextDisabled]}>
+                  {isCheckedInToday ? 'Checked In Today' : checkingIn ? 'Checking in…' : 'Daily Check-In +10'}
+                </Text>
+              </TouchableOpacity>
+            </LinearGradient>
+            {celebration && <Confetti count={celebration.count} origin={{ x: 150, y: 60 }} />}
+          </View>
         </FadeInView>
 
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Ways to Earn</Text>
@@ -104,7 +137,7 @@ export default function RewardsScreen() {
             </View>
             <View style={{ flex: 1, marginLeft: 14 }}>
               <Text style={[styles.actionTitle, { color: theme.text }]}>Refer a Friend</Text>
-              <Text style={[styles.actionSub, { color: theme.textMuted }]}>Earn 50 points for every friend who joins Zannypay</Text>
+              <Text style={[styles.actionSub, { color: theme.textMuted }]}>Earn 50 points for every friend who joins ZannyPay</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
           </TouchableOpacity>
@@ -147,7 +180,9 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 22, fontWeight: '800' },
   scrollContainer: { paddingHorizontal: 20 },
   heroCard: { borderRadius: 20, padding: 24, marginBottom: 24 },
-  heroTopRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  heroTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  streakBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.5)', borderRadius: 12, paddingHorizontal: 9, paddingVertical: 4, gap: 4 },
+  streakText: { fontSize: 12, fontWeight: '700', color: '#1A1523' },
   tierLabel: { fontSize: 14, fontWeight: '700', color: '#1A1523', marginLeft: 8 },
   pointsValue: { fontSize: 36, fontWeight: '800', color: '#1A1523', marginBottom: 14 },
   pts: { fontSize: 16, fontWeight: '700' },

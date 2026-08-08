@@ -2,7 +2,6 @@ import React from 'react';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons';
 import { useWallet } from '../context/WalletContext';
 import { useTheme } from '../context/ThemeContext';
 import AnimatedTabBar from '../components/AnimatedTabBar';
@@ -18,7 +17,9 @@ import HistoryScreen from '../screens/HistoryScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import TransactionDetailScreen from '../screens/TransactionDetailScreen';
 import SupportScreen from '../screens/SupportScreen';
+import SupportChatScreen from '../screens/SupportChatScreen';
 import InvoiceScreen from '../screens/InvoiceScreen';
+import BusinessScreen from '../screens/BusinessScreen';
 
 // Elite Modules
 import AnalyticsScreen from '../screens/AnalyticsScreen';
@@ -50,12 +51,11 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function MainTabs() {
-  // The tab bar itself is a custom renderer (animated pill + icon lift);
-  // routes, names and titles are unchanged.
+  const { theme } = useTheme();
   return (
     <Tab.Navigator
+      screenOptions={{ headerShown: false }}
       tabBar={(props) => <AnimatedTabBar {...props} />}
-      screenOptions={{ headerShown: false, animation: 'shift' }}
     >
       <Tab.Screen name="DashboardTab" component={DashboardScreen} options={{ title: 'Home' }} />
       <Tab.Screen name="Savings" component={SavingsScreen} options={{ title: 'Wealth' }} />
@@ -69,22 +69,15 @@ function MainTabs() {
 function MainStack() {
   const { theme } = useTheme();
   return (
-    <Stack.Navigator
-      screenOptions={{
-        headerShown: false,
-        animation: 'slide_from_right',
-        animationDuration: 280,
-        gestureEnabled: true,
-        gestureDirection: 'horizontal',
-      }}
-    >
-      <Stack.Screen name="Main" component={MainTabs} options={{ animation: 'fade' }} />
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Main" component={MainTabs} />
 
       {/* Money movement */}
       <Stack.Screen name="Transfer" component={TransferScreen} options={{ presentation: 'modal' }} />
       <Stack.Screen name="Bills" component={BillsScreen} options={{ presentation: 'modal' }} />
       <Stack.Screen name="Airtime" component={AirtimeScreen} options={{ presentation: 'card', animation: 'slide_from_right' }} />
       <Stack.Screen name="Invoice" component={InvoiceScreen} options={{ presentation: 'modal' }} />
+      <Stack.Screen name="Business" component={BusinessScreen} options={{ presentation: 'card', animation: 'slide_from_right' }} />
       <Stack.Screen name="Beneficiaries" component={BeneficiariesScreen} options={{ presentation: 'modal', animation: 'slide_from_right' }} />
       <Stack.Screen name="QRPay" component={QRPayScreen} options={{ presentation: 'modal', animation: 'fade_from_bottom' }} />
 
@@ -112,6 +105,7 @@ function MainStack() {
         component={SupportScreen}
         options={{ presentation: 'card', headerShown: true, title: 'Help & Support', headerTintColor: theme.text, headerStyle: { backgroundColor: theme.background } }}
       />
+      <Stack.Screen name="SupportChat" component={SupportChatScreen} options={{ presentation: 'card', animation: 'slide_from_right' }} />
     </Stack.Navigator>
   );
 }
@@ -119,10 +113,7 @@ function MainStack() {
 function AuthStack() {
   const { user } = useWallet();
   return (
-    <Stack.Navigator
-      screenOptions={{ headerShown: false, animation: 'slide_from_right', animationDuration: 280 }}
-      initialRouteName={user ? 'Login' : 'Signup'}
-    >
+    <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={user ? 'Login' : 'Signup'}>
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Signup" component={SignupScreen} />
     </Stack.Navigator>

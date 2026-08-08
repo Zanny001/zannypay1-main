@@ -44,7 +44,7 @@ export default function SplashScreen() {
         ])
       ).start();
     });
-  }, []);
+  }, [dotAnims, glowPulse, logoOpacity, logoScale, taglineOpacity, taglineY]);
 
   return (
     <LinearGradient colors={gradients.dark} style={styles.container}>
@@ -57,19 +57,7 @@ export default function SplashScreen() {
           </LinearGradient>
         </Animated.View>
 
-        <Animated.Text
-          style={[
-            styles.brandName,
-            {
-              opacity: logoOpacity,
-              transform: [
-                { translateY: logoOpacity.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) },
-              ],
-            },
-          ]}
-        >
-          Zannypay
-        </Animated.Text>
+        <Animated.Text style={[styles.brandName, { opacity: logoOpacity }]}>ZannyPay</Animated.Text>
 
         <Animated.Text style={[styles.tagline, { opacity: taglineOpacity, transform: [{ translateY: taglineY }] }]}>
           Money, moved beautifully.

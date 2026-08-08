@@ -1,71 +1,61 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated } from 'react-native';
-import { duration, easing, spring, stagger as staggerFor, useReduceMotion } from '../theme/motion';
+import { duration, easing, spring, stagger, useReduceMotion } from '../theme/motion';
 
-// Consistent entrance for every surface in the app.
+// Wraps any content with an entrance animation, driven by the shared motion
+// tokens so every screen using this — 13+ across the app — moves in one
+// consistent, designed language rather than each screen guessing its own
+// timing. Backward-compatible with the original `{ children, delay, style }`
+// API; the new props below are opt-in.
 //
-// Backwards compatible with the original API (`delay`, `style`) and adds:
-//  - `index`      → automatic stagger for lists/grids
-//  - `from`       → 'bottom' | 'top' | 'left' | 'right' | 'none'
-//  - `distance`   → travel distance
-//  - `scaleFrom`  → subtle scale-up for cards/hero surfaces
-//  - respects the OS "Reduce Motion" setting (fades only, no travel)
-export default function FadeInView({
-  children,
-  delay = 0,
-  index,
-  stagger = 55,
-  from = 'bottom',
-  distance = 16,
-  scaleFrom = 1,
-  style,
-}) {
+//   index      - pass a list index instead of computing `delay` yourself;
+//                staggers automatically and caps out on long lists.
+//   from       - 'up' (default), 'down', 'left', 'right', or 'scale'.
+//   duration   - override the entrance duration for this instance.
+//
+// Respects the OS "Reduce Motion" setting: falls back to a plain, fast
+// cross-fade with no translation/scale when it's on.
+export default function FadeInView({ children, delay, index, from = 'up', duration: durationOverride, style }) {
   const reduceMotion = useReduceMotion();
   const opacity = useRef(new Animated.Value(0)).current;
-  const travel = useRef(new Animated.Value(1)).current; // 1 = offset, 0 = settled
-  const scale = useRef(new Animated.Value(scaleFrom)).current;
+  const translate = useRef(new Animated.Value(1)).current;
+  const scale = useRef(new Animated.Value(from === 'scale' ? 0.94 : 1)).current;
 
-  const totalDelay = delay + (typeof index === 'number' ? staggerFor(index, stagger) : 0);
+  const resolvedDelay = delay !== undefined ? delay : index !== undefined ? stagger(index) : 0;
 
   useEffect(() => {
     if (reduceMotion) {
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: duration.fast,
-        delay: totalDelay,
-        useNativeDriver: true,
-      }).start();
-      travel.setValue(0);
-      scale.setValue(1);
+      Animated.timing(opacity, { toValue: 1, duration: duration.fast, useNativeDriver: true }).start();
       return;
     }
 
     Animated.parallel([
       Animated.timing(opacity, {
         toValue: 1,
-        duration: duration.slow,
-        delay: totalDelay,
-        easing: easing.standard,
+        duration: durationOverride || duration.slow,
+        delay: resolvedDelay,
+        easing: easing.entrance,
         useNativeDriver: true,
       }),
-      Animated.spring(travel, { ...spring.entrance, toValue: 0, delay: totalDelay }),
-      Animated.spring(scale, { ...spring.entrance, toValue: 1, delay: totalDelay }),
+      Animated.spring(translate, { toValue: 0, delay: resolvedDelay, ...spring.entrance }),
+      ...(from === 'scale' ? [Animated.spring(scale, { toValue: 1, delay: resolvedDelay, ...spring.entrance })] : []),
     ]).start();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totalDelay, reduceMotion]);
+  }, [reduceMotion]);
 
-  const offset = travel.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, distance],
-  });
-
-  const transform = [{ scale }];
-  if (from === 'bottom') transform.push({ translateY: offset });
-  if (from === 'top') transform.push({ translateY: Animated.multiply(offset, -1) });
-  if (from === 'right') transform.push({ translateX: offset });
-  if (from === 'left') transform.push({ translateX: Animated.multiply(offset, -1) });
+  const offset = 16;
+  const translateStyle =
+    from === 'left'
+      ? { translateX: translate.interpolate({ inputRange: [0, 1], outputRange: [0, -offset] }) }
+      : from === 'right'
+      ? { translateX: translate.interpolate({ inputRange: [0, 1], outputRange: [0, offset] }) }
+      : from === 'down'
+      ? { translateY: translate.interpolate({ inputRange: [0, 1], outputRange: [0, -offset] }) }
+      : { translateY: translate.interpolate({ inputRange: [0, 1], outputRange: [0, offset] }) }; // 'up' (default) and 'scale' share a gentle rise
 
   return (
-    <Animated.View style={[style, { opacity, transform }]}>{children}</Animated.View>
+    <Animated.View style={[style, { opacity, transform: [translateStyle, { scale }] }]}>
+      {children}
+    </Animated.View>
   );
 }

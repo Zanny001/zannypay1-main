@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, Modal, StyleSheet, Animated, Easing } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, Modal, StyleSheet, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
@@ -8,9 +8,6 @@ import GradientButton from './GradientButton';
 import { colors, gradients } from '../theme/colors';
 import { useWallet } from '../context/WalletContext';
 import { useAlert } from '../context/AlertContext';
-import PressableScale from './PressableScale';
-import FadeInView from './FadeInView';
-import { duration, easing as motionEasing, haptic, spring, useReduceMotion } from '../theme/motion';
 
 // How many times (and how far apart) to poll Paystack's verify endpoint
 // after the checkout browser closes, before giving up and telling the user
@@ -29,48 +26,6 @@ export default function FundModal({ visible, onClose }) {
   const [loading, setLoading] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [method, setMethod] = useState('card'); // 'card' | 'bank'
-
-  // ---- presentation only: sheet + tab motion -------------------------------
-  const reduceMotion = useReduceMotion();
-  const sheet = useRef(new Animated.Value(0)).current;      // 0 hidden, 1 shown
-  const tabAnim = useRef(new Animated.Value(0)).current;    // 0 card, 1 bank
-  const pulse = useRef(new Animated.Value(0)).current;      // confirming pulse
-
-  useEffect(() => {
-    if (visible) {
-      if (reduceMotion) return sheet.setValue(1);
-      sheet.setValue(0);
-      Animated.spring(sheet, { ...spring.entrance, toValue: 1 }).start();
-    } else {
-      Animated.timing(sheet, {
-        toValue: 0,
-        duration: duration.fast,
-        easing: motionEasing.exit,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [visible, sheet, reduceMotion]);
-
-  useEffect(() => {
-    Animated.spring(tabAnim, { ...spring.bouncy, toValue: method === 'bank' ? 1 : 0 }).start();
-  }, [method, tabAnim]);
-
-  useEffect(() => {
-    if (!confirming || reduceMotion) return undefined;
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 700, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0, duration: 700, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [confirming, pulse, reduceMotion]);
-
-  const selectMethod = (next) => {
-    haptic.select();
-    setMethod(next);
-  };
 
   const resetAndClose = () => {
     setAmount('');
@@ -127,36 +82,12 @@ export default function FundModal({ visible, onClose }) {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={confirming ? undefined : onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={confirming ? undefined : onClose}>
       <View style={styles.modalOverlay}>
-        <Animated.View style={[styles.backdrop, { opacity: sheet }]} />
-        <Animated.View
-          style={[
-            styles.modalCard,
-            {
-              transform: [
-                { translateY: sheet.interpolate({ inputRange: [0, 1], outputRange: [420, 0] }) },
-              ],
-              opacity: sheet,
-            },
-          ]}
-        >
+        <View style={styles.modalCard}>
           {confirming ? (
             <View style={styles.confirmingWrap}>
-              <Animated.View
-                style={[
-                  styles.confirmingPulse,
-                  {
-                    opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0.05] }),
-                    transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1.35] }) }],
-                  },
-                ]}
-              />
-              <Animated.View
-                style={{ transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] }) }] }}
-              >
-                <Ionicons name="shield-checkmark" size={38} color={colors.primary} />
-              </Animated.View>
+              <ActivityIndicator size="large" color={colors.primary} />
               <Text style={styles.confirmingTitle}>Confirming your payment…</Text>
               <Text style={styles.confirmingSub}>This usually takes a few seconds. Please don't close the app.</Text>
             </View>
@@ -167,40 +98,25 @@ export default function FundModal({ visible, onClose }) {
               <Text style={styles.modalSubtitle}>Choose how you want to add money.</Text>
 
               <View style={styles.methodSelector}>
-                <Animated.View
-                  pointerEvents="none"
-                  style={[
-                    styles.methodPill,
-                    {
-                      transform: [
-                        { translateX: tabAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) },
-                      ],
-                    },
-                  ]}
-                />
-                <PressableScale
-                  style={styles.methodTab}
-                  activeScale={0.97}
-                  dim={false}
-                  onPress={() => selectMethod('card')}
+                <TouchableOpacity
+                  style={[styles.methodTab, method === 'card' && styles.activeTab]}
+                  onPress={() => setMethod('card')}
                 >
                   <Ionicons name="card-outline" size={16} color={method === 'card' ? colors.primary : colors.textMuted} />
                   <Text style={method === 'card' ? styles.activeTabText : styles.tabText}>Card / Online</Text>
-                </PressableScale>
+                </TouchableOpacity>
 
-                <PressableScale
-                  style={styles.methodTab}
-                  activeScale={0.97}
-                  dim={false}
-                  onPress={() => selectMethod('bank')}
+                <TouchableOpacity
+                  style={[styles.methodTab, method === 'bank' && styles.activeTab]}
+                  onPress={() => setMethod('bank')}
                 >
                   <Ionicons name="business-outline" size={16} color={method === 'bank' ? colors.primary : colors.textMuted} />
                   <Text style={method === 'bank' ? styles.activeTabText : styles.tabText}>Bank Transfer</Text>
-                </PressableScale>
+                </TouchableOpacity>
               </View>
 
               {method === 'card' ? (
-                <FadeInView key="card" distance={10}>
+                <View>
                   <View style={styles.amountInputWrap}>
                     <Text style={styles.currencySign}>{'\u20a6'}</Text>
                     <TextInput
@@ -214,44 +130,42 @@ export default function FundModal({ visible, onClose }) {
                     />
                   </View>
                   <GradientButton title="Proceed to Paystack" onPress={handleCardFunding} loading={loading} />
-                </FadeInView>
+                </View>
               ) : (
-                <FadeInView key="bank" distance={10} style={styles.bankContainer}>
+                <View style={styles.bankContainer}>
                   <Text style={styles.bankInstruction}>
-                    Share this account number with other Zannypay users so they can send money straight to your wallet.
+                    Share this account number with other ZannyPay users so they can send money straight to your wallet.
                     {'\n\n'}
                     This is <Text style={{ fontWeight: '700' }}>not</Text> a bank-linked virtual account yet, so transfers from
                     an external bank app will not arrive here — use "Proceed to Paystack" above to fund from a card or your bank instead.
                   </Text>
                   <LinearGradient colors={gradients.primary} style={styles.accountCard}>
-                    <Text style={styles.bankName}>Zannypay Account Number</Text>
+                    <Text style={styles.bankName}>ZannyPay Account Number</Text>
                     <Text style={styles.accountNumber}>{user?.accountNumber || 'Generating...'}</Text>
                     <Text style={styles.accountName}>{user?.name}</Text>
                   </LinearGradient>
-                </FadeInView>
+                </View>
               )}
 
-              <PressableScale style={styles.cancelBtn} onPress={onClose} activeScale={0.94}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={onClose}>
                 <Text style={styles.cancelBtnText}>Cancel</Text>
-              </PressableScale>
+              </TouchableOpacity>
             </>
           )}
-        </Animated.View>
+        </View>
       </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(10,10,20,0.55)' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalCard: { backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 36 },
   handleBar: { width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: 16 },
   modalTitle: { fontSize: 20, fontWeight: '800', color: colors.textDark },
   modalSubtitle: { fontSize: 14, color: colors.textMuted, marginTop: 4, marginBottom: 20 },
 
-  methodSelector: { flexDirection: 'row', backgroundColor: colors.bgLight, borderRadius: 14, padding: 4, marginBottom: 24, position: 'relative' },
-  methodPill: { position: 'absolute', top: 4, left: 4, width: '50%', bottom: 4, backgroundColor: '#fff', borderRadius: 10, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
+  methodSelector: { flexDirection: 'row', backgroundColor: colors.bgLight, borderRadius: 14, padding: 4, marginBottom: 24 },
   methodTab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 10, gap: 6 },
   activeTab: { backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 6, elevation: 2 },
   tabText: { color: colors.textMuted, fontWeight: '600' },
@@ -272,7 +186,6 @@ const styles = StyleSheet.create({
   cancelBtnText: { color: colors.textMuted, fontWeight: '600' },
 
   confirmingWrap: { alignItems: 'center', paddingVertical: 40 },
-  confirmingPulse: { position: 'absolute', top: 26, width: 96, height: 96, borderRadius: 48, backgroundColor: colors.primary },
   confirmingTitle: { fontSize: 17, fontWeight: '700', color: colors.textDark, marginTop: 20 },
   confirmingSub: { fontSize: 13, color: colors.textMuted, textAlign: 'center', marginTop: 8, paddingHorizontal: 20 },
 });

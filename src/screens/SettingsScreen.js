@@ -57,7 +57,7 @@ export default function SettingsScreen({ navigation }) {
         return;
       }
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Enable Biometric Login for Zannypay',
+        promptMessage: 'Enable Biometric Login for ZannyPay',
         fallbackLabel: 'Use PIN',
       });
       if (result.success) {
@@ -161,7 +161,8 @@ export default function SettingsScreen({ navigation }) {
           </View>
         </View>
 
-        <Text style={[styles.footerText, { color: theme.textMuted }]}>Zannypay v2.1.0</Text>
+        <Text style={[styles.footerText, { color: theme.textMuted }]}>ZannyPay v2.1.0</Text>
+        <Text style={[styles.footerCopyright, { color: theme.textMuted }]}>© {new Date().getFullYear()} ZannyPay. All rights reserved.</Text>
       </ScrollView>
 
       {/* Change Transaction PIN */}
@@ -228,11 +229,10 @@ const styles = StyleSheet.create({
   rowLeft: { flexDirection: 'row', alignItems: 'center' },
   menuLabel: { fontSize: 14, fontWeight: '500', marginLeft: 12 },
   footerText: { textAlign: 'center', fontSize: 11, marginTop: 16 },
+  footerCopyright: { textAlign: 'center', fontSize: 10, marginTop: 4, opacity: 0.7 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   modalCard: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
   modalTitle: { fontSize: 20, fontWeight: '800', textAlign: 'center' },
-  modalSubtitle: { fontSize: 13, textAlign: 'center', marginTop: 8, marginBottom: 20 },
   label: { fontSize: 13, fontWeight: '600', marginBottom: 8, marginTop: 12 },
   input: { borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 20, letterSpacing: 4, textAlign: 'center', borderWidth: 1 },
-  pinInput: { borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 24, letterSpacing: 8, textAlign: 'center', borderWidth: 1 },
 });

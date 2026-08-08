@@ -1,138 +1,80 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, Animated, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { gradients } from '../theme/colors';
 import { fonts } from '../theme/fonts';
-import { duration, easing, haptic, spring, useReduceMotion } from '../theme/motion';
-import { Pressable } from 'react-native';
+import { duration, easing, spring, haptic, useReduceMotion } from '../theme/motion';
 
-// Primary CTA. Same props as before (`title`, `onPress`, `loading`,
-// `disabled`, `variant`, `style`) — only the feel changed:
-//  - springs to 0.965 with a soft shadow drop on press-in
-//  - a light haptic tick lands with the finger
-//  - a slow specular sheen sweeps the gradient while idle (stops when busy)
-//  - the label cross-fades into the spinner instead of snapping
+// The app's primary CTA — used across nearly every screen with a
+// money-moving or account-changing action, so this is the single highest-
+// leverage place to spend motion polish: a press-spring + haptic tick on
+// every tap, a slow idle shimmer sweep so primary buttons read as "the
+// important one" even at rest, and a cross-fade into the loading spinner
+// instead of an abrupt swap. Respects Reduce Motion — press feedback stays
+// functional but shrinks to a simple opacity change, no spring/shimmer.
 export default function GradientButton({ title, onPress, loading, disabled, variant = 'primary', style }) {
   const reduceMotion = useReduceMotion();
   const colorsSet = variant === 'gold' ? gradients.gold : gradients.primary;
   const textColor = variant === 'gold' ? '#1A1523' : '#FFFFFF';
 
-  const scale = useRef(new Animated.Value(1)).current;
-  const sheen = useRef(new Animated.Value(0)).current;
-  const busy = useRef(new Animated.Value(0)).current;
-
-  const isBusy = !!loading;
-  const isInactive = disabled || isBusy;
+  const pressScale = useRef(new Animated.Value(1)).current;
+  const shimmerX = useRef(new Animated.Value(-1)).current;
+  const contentOpacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    Animated.timing(busy, {
-      toValue: isBusy ? 1 : 0,
-      duration: duration.fast,
-      easing: easing.standard,
-      useNativeDriver: true,
-    }).start();
-  }, [isBusy, busy]);
-
-  useEffect(() => {
-    if (reduceMotion || isInactive) {
-      sheen.stopAnimation();
-      return undefined;
-    }
+    if (reduceMotion || disabled) return;
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(sheen, {
-          toValue: 1,
-          duration: 1600,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.delay(2200),
+        Animated.timing(shimmerX, { toValue: 1, duration: 1800, easing: easing.loop, useNativeDriver: true }),
+        Animated.timing(shimmerX, { toValue: -1, duration: 0, useNativeDriver: true }),
+        Animated.delay(1200),
       ])
     );
     loop.start();
     return () => loop.stop();
-  }, [sheen, reduceMotion, isInactive]);
-
-  const press = (toValue) =>
-    Animated.spring(scale, { ...spring.press, toValue }).start();
-
-  const sheenX = sheen.interpolate({ inputRange: [0, 1], outputRange: [-160, 420] });
-
-  return (
-    <Pressable
-      onPress={onPress}
-      onPressIn={() => {
-        if (isInactive) return;
-        haptic.medium();
-        press(reduceMotion ? 1 : 0.965);
-      }}
-      onPressOut={() => press(1)}
-      disabled={isInactive}
-      style={style}
-    >
-      <Animated.View style={[disabled && { opacity: 0.5 }, { transform: [{ scale }] }]}>
-        <LinearGradient
-          colors={colorsSet}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.button}
-        >
-          {!reduceMotion && !isInactive && (
-            <Animated.View
-              pointerEvents="none"
-              style={[styles.sheenWrap, { transform: [{ translateX: sheenX }, { rotate: '18deg' }] }]}
-            >
-              <LinearGradient
-                colors={['transparent', 'rgba(255,255,255,0.28)', 'transparent']}
-                start={{ x: 0, y: 0.5 }}
-                end={{ x: 1, y: 0.5 }}
-                style={styles.sheen}
-              />
-            </Animated.View>
-          )}
-
-          <Animated.View style={{ opacity: busy.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) }}>
-            <Text style={[styles.text, { color: textColor }]}>{title}</Text>
-          </Animated.View>
-
-          <Animated.View style={[styles.spinnerLayer, { opacity: busy }]} pointerEvents="none">
-            <Spinner color={textColor} active={isBusy} />
-          </Animated.View>
-        </LinearGradient>
-      </Animated.View>
-    </Pressable>
-  );
-}
-
-// A smoother, brand-coloured spinner: a rotating arc rather than the stock
-// platform indicator, so the loading state matches the rest of the motion.
-function Spinner({ color, active }) {
-  const spin = useRef(new Animated.Value(0)).current;
+  }, [reduceMotion, disabled, shimmerX]);
 
   useEffect(() => {
-    if (!active) return undefined;
-    spin.setValue(0);
-    const loop = Animated.loop(
-      Animated.timing(spin, {
-        toValue: 1,
-        duration: 850,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [active, spin]);
+    Animated.timing(contentOpacity, { toValue: 1, duration: duration.fast, useNativeDriver: true }).start();
+  }, [loading, contentOpacity]);
 
-  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  const handlePressIn = () => {
+    if (reduceMotion) return;
+    Animated.spring(pressScale, { toValue: 0.97, ...spring.press }).start();
+  };
+  const handlePressOut = () => {
+    if (reduceMotion) return;
+    Animated.spring(pressScale, { toValue: 1, ...spring.press }).start();
+  };
+  const handlePress = () => {
+    haptic.light();
+    onPress?.();
+  };
+
+  const shimmerTranslate = shimmerX.interpolate({ inputRange: [-1, 1], outputRange: [-140, 140] });
 
   return (
-    <Animated.View
-      style={[
-        styles.spinner,
-        { borderColor: `${color}33`, borderTopColor: color, transform: [{ rotate }] },
-      ]}
-    />
+    <Animated.View style={[style, { transform: [{ scale: reduceMotion ? 1 : pressScale }] }, disabled && { opacity: 0.5 }]}>
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        disabled={disabled || loading}
+      >
+        <LinearGradient colors={colorsSet} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.button}>
+          {!reduceMotion && !disabled && (
+            <Animated.View
+              pointerEvents="none"
+              style={[styles.shimmer, { transform: [{ translateX: shimmerTranslate }, { rotate: '20deg' }] }]}
+            />
+          )}
+          <Animated.View style={{ opacity: contentOpacity }}>
+            {loading ? <ActivityIndicator color={textColor} /> : <Text style={[styles.text, { color: textColor }]}>{title}</Text>}
+          </Animated.View>
+        </LinearGradient>
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
@@ -144,13 +86,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
+  shimmer: {
+    position: 'absolute',
+    top: -20,
+    bottom: -20,
+    width: 50,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
   text: {
     fontSize: 16,
     fontWeight: '700',
     fontFamily: fonts.bold,
   },
-  sheenWrap: { ...StyleSheet.absoluteFillObject, alignItems: 'flex-start' },
-  sheen: { width: 90, height: '260%', marginTop: -20 },
-  spinnerLayer: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
-  spinner: { width: 22, height: 22, borderRadius: 11, borderWidth: 2.5 },
 });

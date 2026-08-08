@@ -112,7 +112,7 @@ export default function SignupScreen({ navigation }) {
               <View style={styles.brandMark}>
                 <Text style={styles.brandMarkText}>Z</Text>
               </View>
-              <Text style={styles.brandName}>Zannypay</Text>
+              <Text style={styles.brandName}>ZannyPay</Text>
             </View>
 
             <View style={styles.progressRow}>

@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import Card from '../components/Card';
 
-export default function SupportScreen() {
+export default function SupportScreen({ navigation }) {
   const openLink = (url) => {
     Linking.openURL(url).catch(() => alert('Could not launch communication protocol.'));
   };
@@ -12,7 +12,18 @@ export default function SupportScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>How can we assist you?</Text>
-      <Text style={styles.subtitle}>Our customer success team is online 24/7.</Text>
+      <Text style={styles.subtitle}>Chat with our team, or reach us directly below.</Text>
+
+      <TouchableOpacity style={styles.chatCard} onPress={() => navigation.navigate('SupportChat')} activeOpacity={0.85}>
+        <View style={styles.chatIconWrap}>
+          <Ionicons name="chatbubbles" size={24} color="#fff" />
+        </View>
+        <View style={{ flex: 1, marginLeft: 14 }}>
+          <Text style={styles.chatTitle}>Chat with us</Text>
+          <Text style={styles.chatDesc}>Message a real person — usually replies within a few hours</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color="#fff" />
+      </TouchableOpacity>
 
       <Card style={{ paddingVertical: 6 }}>
         <TouchableOpacity style={styles.row} onPress={() => openLink('mailto:support@zannypay.com')}>
@@ -41,6 +52,10 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bgLight, padding: 20 },
   title: { fontSize: 20, fontWeight: '800', color: colors.textDark, marginTop: 10 },
   subtitle: { fontSize: 14, color: colors.textMuted, marginBottom: 24, marginTop: 4 },
+  chatCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary, borderRadius: 16, padding: 16, marginBottom: 20 },
+  chatIconWrap: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  chatTitle: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  chatDesc: { fontSize: 12, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16 },
   textBlock: { flex: 1, marginLeft: 14 },
   rowTitle: { fontSize: 15, fontWeight: '600', color: colors.textDark },

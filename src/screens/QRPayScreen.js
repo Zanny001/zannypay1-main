@@ -17,9 +17,9 @@ export default function QRPayScreen({ navigation }) {
 
   // The actual payload another app/phone will see when they scan it
   const qrPayload = JSON.stringify({
-    app: 'Zannypay',
+    app: 'ZannyPay',
     account: accountNumber,
-    name: user?.name || 'Zannypay Member',
+    name: user?.name || 'ZannyPay Member',
     amount: requestAmount ? parseFloat(requestAmount) : null
   });
 
@@ -41,7 +41,7 @@ export default function QRPayScreen({ navigation }) {
     try {
       const amountLine = requestAmount ? `\nRequested Amount: ₦${requestAmount}` : '';
       await Share.share({
-        message: `Pay ${user?.name || 'Zannypay User'}\nAccount: ${accountNumber}${amountLine}\n\nOpen Zannypay and send to this account number.`,
+        message: `Pay ${user?.name || 'ZannyPay User'}\nAccount: ${accountNumber}${amountLine}\n\nOpen ZannyPay and send to this account number.`,
       });
     } catch (e) {
       // Share sheet dismissed
@@ -76,8 +76,8 @@ export default function QRPayScreen({ navigation }) {
         </View>
 
         <View style={styles.identityBlock}>
-          <Text style={styles.name}>{user?.name || 'Zannypay Member'}</Text>
-          <Text style={styles.account}>{maskAccount(accountNumber)} · Zannypay</Text>
+          <Text style={styles.name}>{user?.name || 'ZannyPay Member'}</Text>
+          <Text style={styles.account}>{maskAccount(accountNumber)} · ZannyPay</Text>
         </View>
 
         <View style={styles.requestBlock}>

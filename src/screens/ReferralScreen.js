@@ -15,14 +15,26 @@ import FadeInView from '../components/FadeInView';
 export default function ReferralScreen({ navigation }) {
   const { theme } = useTheme();
   const { alert } = useAlert();
-  const { referrals, fetchReferrals } = useWallet();
+  const { referrals, fetchReferrals, fetchLeaderboard } = useWallet();
   const [loading, setLoading] = useState(true);
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [myRank, setMyRank] = useState(null);
 
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
-      fetchReferrals().finally(() => setLoading(false));
-    }, [fetchReferrals])
+      Promise.all([
+        fetchReferrals(),
+        fetchLeaderboard().then((res) => {
+          if (res.ok) {
+            setLeaderboard(res.data.leaderboard || []);
+            setRecentActivity(res.data.recentActivity || []);
+            setMyRank(res.data.myRank);
+          }
+        }),
+      ]).finally(() => setLoading(false));
+    }, [fetchReferrals, fetchLeaderboard])
   );
 
   const handleCopy = async () => {
@@ -35,7 +47,7 @@ export default function ReferralScreen({ navigation }) {
     if (!referrals.referralCode) return;
     try {
       await Share.share({
-        message: `Join me on Zannypay! Use my referral code ${referrals.referralCode} when you sign up. Fast, secure payments made simple. 💜`,
+        message: `Join me on ZannyPay! Use my referral code ${referrals.referralCode} when you sign up. Fast, secure payments made simple. 💜`,
       });
     } catch (error) {
       // share sheet dismissed — nothing to do
@@ -56,7 +68,7 @@ export default function ReferralScreen({ navigation }) {
         <FadeInView>
           <LinearGradient colors={gradients.gold} style={styles.heroCard}>
             <Ionicons name="gift" size={30} color="#1A1523" />
-            <Text style={styles.heroTitle}>Invite friends to Zannypay</Text>
+            <Text style={styles.heroTitle}>Invite friends to ZannyPay</Text>
             <Text style={styles.heroSub}>Share your code — when they sign up, they'll be linked to you as your referral.</Text>
 
             <View style={styles.codeBox}>
@@ -78,7 +90,45 @@ export default function ReferralScreen({ navigation }) {
             <Text style={[styles.statValue, { color: theme.text }]}>{referrals.totalReferred}</Text>
             <Text style={[styles.statLabel, { color: theme.textMuted }]}>Friends Joined</Text>
           </View>
+          {myRank && (
+            <View style={[styles.statCard, { backgroundColor: theme.surface, marginLeft: 12 }]}>
+              <Text style={[styles.statValue, { color: theme.text }]}>#{myRank}</Text>
+              <Text style={[styles.statLabel, { color: theme.textMuted }]}>Your Rank</Text>
+            </View>
+          )}
         </View>
+
+        {leaderboard.length > 0 && (
+          <>
+            <Text style={[styles.sectionHeading, { color: theme.textMuted }]}>Top Referrers</Text>
+            <View style={[styles.leaderboardCard, { backgroundColor: theme.surface }]}>
+              {leaderboard.map((entry, idx) => (
+                <View key={entry.id} style={[styles.leaderboardRow, idx < leaderboard.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.border }]}>
+                  <Text style={[styles.leaderboardRank, { color: idx < 3 ? theme.accent : theme.textMuted }]}>{idx + 1}</Text>
+                  <Text style={[styles.leaderboardName, { color: theme.text }]}>{entry.name}</Text>
+                  <Text style={[styles.leaderboardCount, { color: theme.primary }]}>{entry.count} joined</Text>
+                </View>
+              ))}
+            </View>
+          </>
+        )}
+
+        {recentActivity.length > 0 && (
+          <>
+            <Text style={[styles.sectionHeading, { color: theme.textMuted }]}>Recent Activity</Text>
+            <View style={[styles.activityCard, { backgroundColor: theme.surface }]}>
+              {recentActivity.slice(0, 5).map((entry, idx) => (
+                <View key={idx} style={[styles.activityRow, idx < Math.min(recentActivity.length, 5) - 1 && { borderBottomWidth: 1, borderBottomColor: theme.border }]}>
+                  <Ionicons name="person-add" size={14} color={theme.success} />
+                  <Text style={[styles.activityText, { color: theme.text }]}>
+                    <Text style={{ fontWeight: '700' }}>{entry.name}</Text> joined via a referral
+                  </Text>
+                  <Text style={[styles.activityTime, { color: theme.textMuted }]}>{formatDate(entry.joinedAt)}</Text>
+                </View>
+              ))}
+            </View>
+          </>
+        )}
 
         <Text style={[styles.sectionHeading, { color: theme.textMuted }]}>People You've Referred</Text>
         {!loading && referrals.referred.length === 0 ? (
@@ -123,6 +173,15 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 26, fontWeight: '800' },
   statLabel: { fontSize: 12, marginTop: 4 },
   sectionHeading: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', marginBottom: 10 },
+  leaderboardCard: { borderRadius: 16, marginBottom: 20, overflow: 'hidden' },
+  leaderboardRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 13 },
+  leaderboardRank: { width: 22, fontSize: 14, fontWeight: '800' },
+  leaderboardName: { flex: 1, fontSize: 13, fontWeight: '600' },
+  leaderboardCount: { fontSize: 12, fontWeight: '700' },
+  activityCard: { borderRadius: 16, marginBottom: 20, overflow: 'hidden' },
+  activityRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
+  activityText: { flex: 1, fontSize: 12 },
+  activityTime: { fontSize: 10 },
   emptyCard: { borderRadius: 16, padding: 24, alignItems: 'center' },
   emptyText: { fontSize: 13, textAlign: 'center', marginTop: 10, lineHeight: 19 },
   personRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, padding: 14, marginBottom: 10 },

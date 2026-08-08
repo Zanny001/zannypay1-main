@@ -41,7 +41,7 @@ export default function ProfileScreen() {
         <TouchableOpacity style={styles.header} activeOpacity={0.8} onPress={() => navigation.navigate('ProfileInfo')}>
           <Avatar uri={user?.profileImage} name={user?.name} size={64} />
           <View style={styles.headerTextWrap}>
-            <Text style={[styles.name, { color: theme.text }]}>{user?.name || 'Zannypay Member'}</Text>
+            <Text style={[styles.name, { color: theme.text }]}>{user?.name || 'ZannyPay Member'}</Text>
             <View style={styles.tierBadge}>
               <Ionicons name="shield-checkmark" size={12} color="#00C48C" />
               <Text style={styles.tierText}>Verified · Tier {user?.kycTier || 1}</Text>
@@ -125,6 +125,11 @@ export default function ProfileScreen() {
             <Text style={[styles.menuLabel, { color: theme.text }]}>Zanny Cards</Text>
             <Ionicons name="chevron-forward" size={18} color={theme.textMuted} style={{ marginLeft: 'auto' }} />
           </TouchableOpacity>
+          <TouchableOpacity style={[styles.clickableMenu, { borderBottomColor: theme.border }]} onPress={() => navigation.navigate('Business')}>
+            <Ionicons name="storefront-outline" size={20} color={theme.primary} />
+            <Text style={[styles.menuLabel, { color: theme.text }]}>ZannyPay Business</Text>
+            <Ionicons name="chevron-forward" size={18} color={theme.textMuted} style={{ marginLeft: 'auto' }} />
+          </TouchableOpacity>
           <TouchableOpacity style={[styles.clickableMenu, { borderBottomColor: theme.border }]} onPress={() => navigation.navigate('Invoice')}>
             <Ionicons name="document-text-outline" size={20} color={theme.primary} />
             <Text style={[styles.menuLabel, { color: theme.text }]}>Create Invoice</Text>
@@ -166,7 +171,7 @@ export default function ProfileScreen() {
           <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>
 
-        <Text style={[styles.footerText, { color: theme.textMuted }]}>Secured by Zannypay · v2.1.0</Text>
+        <Text style={[styles.footerText, { color: theme.textMuted }]}>Secured by ZannyPay · v2.1.0</Text>
       </ScrollView>
     </SafeAreaView>
   );

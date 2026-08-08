@@ -33,7 +33,7 @@ export default class ErrorBoundary extends React.Component {
           </View>
           <Text style={styles.title}>Something went wrong</Text>
           <Text style={styles.subtitle}>
-            Zannypay ran into an unexpected error. Your funds and data are safe — try again.
+            ZannyPay ran into an unexpected error. Your funds and data are safe — try again.
           </Text>
           <GradientButton title="Try Again" onPress={this.handleReset} style={{ marginTop: 24, width: 200 }} />
         </SafeAreaView>

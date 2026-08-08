@@ -111,7 +111,7 @@ export default function HistoryScreen({ navigation }) {
         sections={sections}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
-        renderItem={({ item, index }) => <TransactionRow txn={item} index={index} />}
+        renderItem={({ item }) => <TransactionRow txn={item} />}
         renderSectionHeader={({ section: { title } }) => (
           <Text style={[styles.sectionHeader, { color: theme.textMuted, backgroundColor: theme.background }]}>{title}</Text>
         )}

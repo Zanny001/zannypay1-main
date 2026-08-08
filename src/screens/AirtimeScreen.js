@@ -7,6 +7,8 @@ import { useTheme } from '../context/ThemeContext';
 import { useWallet } from '../context/WalletContext';
 import { formatCurrency } from '../utils/format';
 import GradientButton from '../components/GradientButton';
+import SuccessModal from '../components/SuccessModal';
+import PointsRedemptionToggle, { computeMaxRedeemablePoints } from '../components/PointsRedemptionToggle';
 import { useAlert } from '../context/AlertContext';
 
 const AMOUNTS = ['100', '200', '500', '1000', '2000', '5000'];
@@ -28,16 +30,18 @@ const DATA_PLANS = [
 export default function AirtimeScreen({ navigation }) {
   const { alert } = useAlert();
   const { theme } = useTheme();
-  const { buyAirtime } = useWallet();
+  const { buyAirtime, user } = useWallet();
   const [activeTab, setActiveTab] = useState('Airtime');
   const [provider, setProvider] = useState(PROVIDERS[0]);
   const [phone, setPhone] = useState('');
   const [amount, setAmount] = useState('');
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [usePoints, setUsePoints] = useState(false);
   
   // PIN Modal State
   const [pinModalVisible, setPinModalVisible] = useState(false);
   const [pin, setPin] = useState('');
+  const [successInfo, setSuccessInfo] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const handleTopup = () => {
@@ -46,6 +50,7 @@ export default function AirtimeScreen({ navigation }) {
       return;
     }
     setPin(''); // Reset PIN on new attempt
+    setUsePoints(false);
     setPinModalVisible(true); // Trigger the PIN input modal
   };
 
@@ -55,6 +60,7 @@ export default function AirtimeScreen({ navigation }) {
       return;
     }
     
+    const pointsToRedeem = usePoints ? computeMaxRedeemablePoints(amount, user?.rewardPoints) : 0;
     setLoading(true);
     const res = await buyAirtime({
       phone,
@@ -62,6 +68,7 @@ export default function AirtimeScreen({ navigation }) {
       provider,
       pin,
       isData: activeTab === 'Data Bundle',
+      pointsToRedeem,
     });
     
     setLoading(false);
@@ -73,12 +80,11 @@ export default function AirtimeScreen({ navigation }) {
     }
     
     setPinModalVisible(false);
+    const savingsNote = pointsToRedeem > 0 ? ` Saved ${formatCurrency(pointsToRedeem / 10)} with points.` : '';
     const successMessage = activeTab === 'Data Bundle' && selectedPlan
-      ? `${selectedPlan.data} (${selectedPlan.duration}) data purchased for ${phone}.`
-      : `${formatCurrency(amount)} ${activeTab} purchased for ${phone}.`;
-    alert('Success', successMessage, [
-      { text: 'Done', onPress: () => navigation.goBack() },
-    ]);
+      ? `${selectedPlan.data} (${selectedPlan.duration}) data purchased for ${phone}.${savingsNote}`
+      : `${formatCurrency(amount)} ${activeTab} purchased for ${phone}.${savingsNote}`;
+    setSuccessInfo({ message: successMessage });
   };
 
   return (
@@ -210,6 +216,13 @@ export default function AirtimeScreen({ navigation }) {
                 ? `Buy ${selectedPlan.data} (${selectedPlan.duration}) for ${phone} (${provider}) — ${formatCurrency(amount)}`
                 : `Buy ${formatCurrency(amount)} ${activeTab} for ${phone} (${provider})?`}
             </Text>
+
+            <PointsRedemptionToggle
+              amount={amount}
+              availablePoints={user?.rewardPoints}
+              enabled={usePoints}
+              onToggle={setUsePoints}
+            />
             
             <TextInput
               style={[styles.pinInput, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
@@ -231,6 +244,13 @@ export default function AirtimeScreen({ navigation }) {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      <SuccessModal
+        visible={!!successInfo}
+        title="Purchase Successful"
+        message={successInfo?.message}
+        onClose={() => { setSuccessInfo(null); navigation.goBack(); }}
+      />
     </SafeAreaView>
   );
 }

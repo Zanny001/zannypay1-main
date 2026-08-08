@@ -302,9 +302,9 @@ export function WalletProvider({ children }) {
     }
   }, [syncWallet]);
 
-  const payBill = useCallback(async ({ billerName, category, amount, reference, pin }) => {
+  const payBill = useCallback(async ({ billerName, category, amount, reference, pin, pointsToRedeem }) => {
     try {
-      const res = await apiPost('/wallet/billpay', { billerName, category, amount: parseFloat(amount), reference, pin }, { type: 'bill', amount });
+      const res = await apiPost('/wallet/billpay', { billerName, category, amount: parseFloat(amount), reference, pin, pointsToRedeem }, { type: 'bill', amount });
       if (res && res.success) {
         const data = await syncWallet();
         const txn = data?.transactions?.find((t) => t.id === res.transactionId) || null;
@@ -316,9 +316,9 @@ export function WalletProvider({ children }) {
     }
   }, [syncWallet]);
 
-  const buyAirtime = useCallback(async ({ phone, amount, provider, pin, isData }) => {
+  const buyAirtime = useCallback(async ({ phone, amount, provider, pin, isData, pointsToRedeem }) => {
     try {
-      const res = await apiPost('/wallet/airtime', { phone, amount: parseFloat(amount), provider, pin, type: isData ? 'data' : 'airtime' }, { type: 'airtime', amount, account: phone });
+      const res = await apiPost('/wallet/airtime', { phone, amount: parseFloat(amount), provider, pin, type: isData ? 'data' : 'airtime', pointsToRedeem }, { type: 'airtime', amount, account: phone });
       if (res && res.success) {
         const data = await syncWallet();
         const txn = data?.transactions?.find((t) => t.id === res.transactionId) || null;
@@ -536,8 +536,15 @@ export function WalletProvider({ children }) {
     try {
       const res = await apiPost('/user/checkin', {});
       if (res) {
-        setUser((prev) => (prev ? { ...prev, rewardPoints: res.rewardPoints } : prev));
-        return { ok: true, alreadyCheckedIn: !!res.alreadyCheckedIn, rewardPoints: res.rewardPoints };
+        setUser((prev) => (prev ? { ...prev, rewardPoints: res.rewardPoints, checkInStreak: res.streak } : prev));
+        return {
+          ok: true,
+          alreadyCheckedIn: !!res.alreadyCheckedIn,
+          rewardPoints: res.rewardPoints,
+          streak: res.streak,
+          pointsEarned: res.pointsEarned,
+          milestone: res.milestone,
+        };
       }
       return { ok: false, error: 'Could not check in right now.' };
     } catch (err) {
@@ -551,7 +558,7 @@ export function WalletProvider({ children }) {
       if (res && res.found && res.recipient) {
         return { ok: true, recipient: res.recipient };
       }
-      return { ok: false, error: 'No matching Zannypay user.' };
+      return { ok: false, error: 'No matching ZannyPay user.' };
     } catch (err) {
       return { ok: false, error: err.message };
     }
@@ -625,6 +632,37 @@ export function WalletProvider({ children }) {
     }
   }, []);
 
+  const fetchLeaderboard = useCallback(async () => {
+    try {
+      const res = await apiGet('/referrals/leaderboard');
+      return { ok: true, data: res };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }, []);
+
+  const activateBusiness = useCallback(async (businessName) => {
+    try {
+      const res = await apiPost('/business/activate', { businessName });
+      // The user's own record now carries businessName/businessAccountNumber
+      // (from /user/me), so refresh it — this is how the rest of the app
+      // (e.g. Transfer's own-account guard) learns the new number exists.
+      setUser((prev) => (prev ? { ...prev, businessName: res.businessName, businessAccountNumber: res.businessAccountNumber } : prev));
+      return { ok: true, data: res };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }, []);
+
+  const fetchBusinessProfile = useCallback(async () => {
+    try {
+      const res = await apiGet('/business/me');
+      return { ok: true, data: res };
+    } catch (err) {
+      return { ok: false, error: err.message, notActivated: err.message?.includes('not been activated') };
+    }
+  }, []);
+
   const value = {
     loading, onboarded, completeOnboarding, user, isAuthenticated, token,
     signup, login, logout, loginWithBiometricToken, balance, transactions,
@@ -635,7 +673,7 @@ export function WalletProvider({ children }) {
     requestVirtualCard, toggleCardFreeze, cards, invoices,
     budgets, setBudgetLimit, removeBudget,
     disputes, createDispute,
-    referrals, fetchReferrals,
+    referrals, fetchReferrals, fetchLeaderboard, activateBusiness, fetchBusinessProfile,
     updateProfile, changePin, resolveRecipient, dailyCheckIn,
   };
 

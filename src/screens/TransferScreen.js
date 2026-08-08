@@ -15,6 +15,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import GradientButton from '../components/GradientButton';
+import SuccessModal from '../components/SuccessModal';
 import { colors } from '../theme/colors';
 import { useTheme } from '../context/ThemeContext';
 import { useWallet } from '../context/WalletContext';
@@ -33,13 +34,14 @@ const BANK_LIST = [
 ];
 
 const BENEFICIARIES_STORAGE_KEY = 'zannypay:beneficiaries';
+const QUICK_AMOUNTS = [500, 1000, 2000, 5000, 10000];
 
 export default function TransferScreen({ navigation, route }) {
   const { alert } = useAlert();
   const { theme } = useTheme();
   const { balance, transferMoney, transactions, resolveRecipient } = useWallet();
 
-  // 'bank' = external transfer, 'zanny' = internal Zannypay-to-Zannypay transfer
+  // 'bank' = external transfer, 'zanny' = internal ZannyPay-to-ZannyPay transfer
   const [tab, setTab] = useState('bank');
   const [subTab, setSubTab] = useState('recent');
 
@@ -52,6 +54,7 @@ export default function TransferScreen({ navigation, route }) {
   const [bankModalVisible, setBankModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showPinModal, setShowPinModal] = useState(false);
+  const [successInfo, setSuccessInfo] = useState(null); // { message, txn } while the success modal is shown
   const [loading, setLoading] = useState(false);
 
   const scrollRef = useRef(null);
@@ -155,8 +158,8 @@ export default function TransferScreen({ navigation, route }) {
   );
 
   const savedForCurrentTab = useMemo(() => {
-    if (tab === 'zanny') return beneficiaries.filter((b) => !b.bank || b.bank === 'Zannypay');
-    return beneficiaries.filter((b) => b.bank && b.bank !== 'Zannypay');
+    if (tab === 'zanny') return beneficiaries.filter((b) => !b.bank || b.bank === 'ZannyPay');
+    return beneficiaries.filter((b) => b.bank && b.bank !== 'ZannyPay');
   }, [beneficiaries, tab]);
 
   const handleTabSwitch = (newTab) => {
@@ -177,9 +180,9 @@ export default function TransferScreen({ navigation, route }) {
   };
 
   const handlePickSaved = (item) => {
-    setTab(item.bank && item.bank !== 'Zannypay' ? 'bank' : 'zanny');
+    setTab(item.bank && item.bank !== 'ZannyPay' ? 'bank' : 'zanny');
     setAccount(item.account);
-    setBank(item.bank && item.bank !== 'Zannypay' ? item.bank : '');
+    setBank(item.bank && item.bank !== 'ZannyPay' ? item.bank : '');
     focusAmountField();
   };
 
@@ -208,7 +211,7 @@ export default function TransferScreen({ navigation, route }) {
     setLoading(true);
     const res = await transferMoney({
       recipientAccount: account,
-      bank: tab === 'zanny' ? 'Zannypay' : bank,
+      bank: tab === 'zanny' ? 'ZannyPay' : bank,
       amount,
       note,
       pin,
@@ -222,10 +225,7 @@ export default function TransferScreen({ navigation, route }) {
       return;
     }
 
-    alert('Transfer Successful', `Sent ${formatCurrency(amount)} to ${account}.`, [
-      { text: 'View Receipt', onPress: () => navigation.navigate('TransactionDetail', { txn: res.txn }) },
-      { text: 'Done', onPress: () => navigation.navigate('Main') },
-    ]);
+    setSuccessInfo({ message: `Sent ${formatCurrency(amount)} to ${account}.`, txn: res.txn });
   };
 
   const renderRecentItem = (item) => (
@@ -262,7 +262,7 @@ export default function TransferScreen({ navigation, route }) {
           <Ionicons name="arrow-back" size={24} color={theme.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.text }]}>
-          {tab === 'bank' ? 'Transfer to Bank' : 'Transfer to Zannypay'}
+          {tab === 'bank' ? 'Transfer to Bank' : 'Transfer to ZannyPay'}
         </Text>
         <TouchableOpacity onPress={() => navigation.navigate('History')}>
           <Ionicons name="receipt-outline" size={22} color={theme.text} />
@@ -275,7 +275,7 @@ export default function TransferScreen({ navigation, route }) {
           <Text style={[styles.tabText, { color: tab === 'bank' ? theme.primary : theme.textMuted }]}>To Bank</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.tabBtn} onPress={() => handleTabSwitch('zanny')}>
-          <Text style={[styles.tabText, { color: tab === 'zanny' ? theme.primary : theme.textMuted }]}>To Zannypay</Text>
+          <Text style={[styles.tabText, { color: tab === 'zanny' ? theme.primary : theme.textMuted }]}>To ZannyPay</Text>
         </TouchableOpacity>
         <Animated.View
           style={[
@@ -337,7 +337,7 @@ export default function TransferScreen({ navigation, route }) {
             <View style={[styles.zannyStaticIcon, { backgroundColor: theme.primary }]}>
               <Text style={styles.zannyStaticIconText}>Z</Text>
             </View>
-            <Text style={[styles.zannyStaticText, { color: theme.text }]}>Zannypay</Text>
+            <Text style={[styles.zannyStaticText, { color: theme.text }]}>ZannyPay</Text>
           </View>
         )}
 
@@ -351,6 +351,17 @@ export default function TransferScreen({ navigation, route }) {
           value={amount}
           onChangeText={setAmount}
         />
+        <View style={styles.quickAmountRow}>
+          {QUICK_AMOUNTS.map((preset) => (
+            <TouchableOpacity
+              key={preset}
+              style={[styles.quickAmountChip, { backgroundColor: theme.surfaceAlt, borderColor: theme.border }]}
+              onPress={() => setAmount(String(preset))}
+            >
+              <Text style={[styles.quickAmountText, { color: theme.text }]}>{preset.toLocaleString()}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
         <Text style={[styles.label, { color: theme.text }]}>Add a Note (Optional)</Text>
         <TextInput
@@ -508,6 +519,16 @@ export default function TransferScreen({ navigation, route }) {
           </View>
         </View>
       </Modal>
+
+      <SuccessModal
+        visible={!!successInfo}
+        title="Transfer Successful"
+        message={successInfo?.message}
+        buttonLabel="Done"
+        onClose={() => { setSuccessInfo(null); navigation.navigate('Main'); }}
+        secondaryLabel="View Receipt"
+        onSecondary={() => { const txn = successInfo?.txn; setSuccessInfo(null); navigation.navigate('TransactionDetail', { txn }); }}
+      />
     </SafeAreaView>
   );
 }
@@ -526,6 +547,9 @@ const styles = StyleSheet.create({
   scroll: { padding: 24 },
   balanceText: { textAlign: 'center', fontSize: 14, marginBottom: 20, fontWeight: '600' },
   label: { fontSize: 13, fontWeight: '700', marginBottom: 10, marginTop: 20 },
+  quickAmountRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  quickAmountChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+  quickAmountText: { fontSize: 13, fontWeight: '600' },
   input: { borderRadius: 16, paddingHorizontal: 20, paddingVertical: 16, fontSize: 16, borderWidth: 1, fontWeight: '600' },
   resolveBanner: { flexDirection: 'row', alignItems: 'center', marginTop: 10, paddingVertical: 8, paddingHorizontal: 4 },
   resolveText: { fontSize: 13, marginLeft: 8 },

@@ -1,11 +1,9 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Modal, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Animated, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { fonts } from '../theme/fonts';
-import PressableScale from './PressableScale';
-import { duration, easing as motionEasing, haptic, spring, useReduceMotion } from '../theme/motion';
 
 const TYPE_META = {
   success: { icon: 'checkmark-circle', gradient: ['#0E9F6E', '#34D399'] },
@@ -20,50 +18,24 @@ export default function CustomAlert({ visible, title, message, buttons, type = '
   const scale = useRef(new Animated.Value(0.85)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const iconPulse = useRef(new Animated.Value(0)).current;
-  const ring = useRef(new Animated.Value(0)).current;
-  const reduceMotion = useReduceMotion();
 
   const meta = TYPE_META[type] || TYPE_META.info;
   const resolvedButtons = buttons && buttons.length > 0 ? buttons : [{ text: 'OK', style: 'default' }];
 
   useEffect(() => {
-    if (!visible) return;
-
-    // Feedback matched to intent: success chimes, errors thud, the rest ticks.
-    if (type === 'success') haptic.success();
-    else if (type === 'error') haptic.error();
-    else if (type === 'warning') haptic.warning();
-    else haptic.light();
-
-    scale.setValue(reduceMotion ? 1 : 0.9);
-    opacity.setValue(0);
-    iconPulse.setValue(reduceMotion ? 1 : 0);
-    ring.setValue(0);
-
-    Animated.parallel([
-      Animated.spring(scale, { ...spring.entrance, toValue: 1 }),
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: duration.base,
-        easing: motionEasing.standard,
-        useNativeDriver: true,
-      }),
-      Animated.timing(iconPulse, {
-        toValue: 1,
-        duration: duration.slow,
-        delay: 90,
-        easing: motionEasing.snap,
-        useNativeDriver: true,
-      }),
-      Animated.timing(ring, {
-        toValue: 1,
-        duration: 900,
-        delay: 120,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [visible, type, iconPulse, opacity, scale, ring, reduceMotion]);
+    if (visible) {
+      scale.setValue(0.85);
+      opacity.setValue(0);
+      iconPulse.setValue(0);
+      Animated.parallel([
+        Animated.spring(scale, { toValue: 1, friction: 7, tension: 80, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+        Animated.sequence([
+          Animated.timing(iconPulse, { toValue: 1, duration: 400, easing: Easing.out(Easing.back(1.6)), useNativeDriver: true, delay: 100 }),
+        ]),
+      ]).start();
+    }
+  }, [visible, iconPulse, opacity, scale]);
 
   const handlePress = (btn) => {
     onRequestClose?.();
@@ -78,17 +50,6 @@ export default function CustomAlert({ visible, title, message, buttons, type = '
         <Animated.View style={[styles.overlayFill, { opacity, backgroundColor: scheme === 'dark' ? 'rgba(0,0,0,0.75)' : 'rgba(10,10,20,0.55)' }]} />
         <Animated.View style={[styles.card, { backgroundColor: theme.surface, opacity, transform: [{ scale }] }]}>
           <View style={styles.iconOuter}>
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                styles.iconRing,
-                {
-                  borderColor: meta.gradient[0],
-                  opacity: ring.interpolate({ inputRange: [0, 1], outputRange: [0.4, 0] }),
-                  transform: [{ scale: ring.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1.7] }) }],
-                },
-              ]}
-            />
             <Animated.View style={{ transform: [{ scale: iconPulse }] }}>
               <LinearGradient colors={meta.gradient} style={styles.iconBadge}>
                 <Ionicons name={meta.icon} size={32} color="#fff" />
@@ -105,10 +66,10 @@ export default function CustomAlert({ visible, title, message, buttons, type = '
               const isCancel = btn.style === 'cancel';
               const isPrimary = !isDestructive && !isCancel;
               return (
-                <PressableScale
+                <TouchableOpacity
                   key={idx}
                   onPress={() => handlePress(btn)}
-                  activeScale={0.95}
+                  activeOpacity={0.8}
                   style={[
                     styles.button,
                     resolvedButtons.length > 2 && styles.buttonFullWidth,
@@ -127,7 +88,7 @@ export default function CustomAlert({ visible, title, message, buttons, type = '
                   >
                     {btn.text}
                   </Text>
-                </PressableScale>
+                </TouchableOpacity>
               );
             })}
           </View>
@@ -154,8 +115,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 15 },
     elevation: 20,
   },
-  iconOuter: { marginBottom: 18, alignItems: 'center', justifyContent: 'center' },
-  iconRing: { position: 'absolute', width: 72, height: 72, borderRadius: 36, borderWidth: 2 },
+  iconOuter: { marginBottom: 18 },
   iconBadge: {
     width: 72, height: 72, borderRadius: 36,
     alignItems: 'center', justifyContent: 'center',

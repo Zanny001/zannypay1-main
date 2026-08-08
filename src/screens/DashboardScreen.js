@@ -13,10 +13,9 @@ import { getUnreadCount } from '../utils/notifications';
 import TransactionRow from '../components/TransactionRow';
 import FundModal from '../components/FundModal';
 import Avatar from '../components/Avatar';
-import PressableScale from '../components/PressableScale';
+import Skeleton from '../components/Skeleton';
 import AnimatedNumber from '../components/AnimatedNumber';
-import FadeInView from '../components/FadeInView';
-import { haptic } from '../theme/motion';
+import PressableScale from '../components/PressableScale';
 
 // Primary 8-Item Grid
 const QUICK_ACTIONS = [
@@ -39,7 +38,7 @@ const MORE_ACTIONS = [
 
 export default function DashboardScreen({ navigation }) {
   const { theme } = useTheme();
-  const { user, balance, transactions, syncWallet, isBalanceHidden, toggleBalanceHidden } = useWallet();
+  const { user, balance, transactions, syncWallet, isBalanceHidden, toggleBalanceHidden, loading } = useWallet();
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [fundModalVisible, setFundModalVisible] = useState(false);
   const [moreModalVisible, setMoreModalVisible] = useState(false);
@@ -64,22 +63,58 @@ export default function DashboardScreen({ navigation }) {
   };
 
   const onRefresh = async () => {
-    haptic.light();
     setRefreshing(true);
     await syncWallet();
     setRefreshing(false);
-    haptic.success();
   };
+
+  // Only on the very first load — WalletContext's `loading` flag is true
+  // until the initial fetch resolves, then stays false on refresh/pull-to-
+  // refresh, so this never re-flashes over real content.
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+        <View style={{ padding: 20 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 }}>
+            <Skeleton width={44} height={44} radius={22} />
+            <View style={{ marginLeft: 12 }}>
+              <Skeleton width={120} height={12} style={{ marginBottom: 8 }} />
+              <Skeleton width={80} height={10} />
+            </View>
+          </View>
+          <Skeleton width="100%" height={140} radius={20} style={{ marginBottom: 24 }} />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 28 }}>
+            {[0, 1, 2, 3].map((i) => (
+              <View key={i} style={{ alignItems: 'center' }}>
+                <Skeleton width={52} height={52} radius={26} style={{ marginBottom: 8 }} />
+                <Skeleton width={40} height={9} />
+              </View>
+            ))}
+          </View>
+          <Skeleton width={140} height={14} style={{ marginBottom: 16 }} />
+          {[0, 1, 2, 3].map((i) => (
+            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 18 }}>
+              <Skeleton width={40} height={40} radius={20} />
+              <View style={{ marginLeft: 12, flex: 1 }}>
+                <Skeleton width="60%" height={12} style={{ marginBottom: 6 }} />
+                <Skeleton width="35%" height={10} />
+              </View>
+            </View>
+          ))}
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}>
         {/* HEADER */}
-        <FadeInView from="top" distance={12} style={styles.header}>
+        <View style={styles.header}>
           <View style={styles.userInfoRow}>
-            <PressableScale onPress={() => navigation.navigate('Profile')} activeScale={0.92}>
+            <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
               <Avatar uri={user?.profileImage} name={user?.name} size={44} />
-            </PressableScale>
+            </TouchableOpacity>
             <View style={{ marginLeft: 12 }}>
               <Text style={[styles.hello, { color: theme.text }]}>Hi, {user?.name?.split(' ')[0] || 'there'} 👋</Text>
               <Text style={[styles.account, { color: theme.textMuted }]}>{maskAccount(user?.accountNumber || user?.phone || '0000')}</Text>
@@ -96,92 +131,87 @@ export default function DashboardScreen({ navigation }) {
                 style={{ transform: [{ scaleX: 0.7 }, { scaleY: 0.7 }] }}
               />
             </View>
-            <PressableScale onPress={() => navigation.navigate('Notifications')} activeScale={0.9} style={[styles.bellBtn, { backgroundColor: theme.surface }]}>
+            <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={[styles.bellBtn, { backgroundColor: theme.surface }]}>
               <Ionicons name="notifications-outline" size={22} color={theme.text} />
               {unreadCount > 0 && (
                 <View style={styles.bellBadge}>
                   <Text style={styles.bellBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
                 </View>
               )}
-            </PressableScale>
+            </TouchableOpacity>
           </View>
-        </FadeInView>
+        </View>
 
         {user?.isFrozen && (
-          <FadeInView style={[styles.frozenBanner, { backgroundColor: `${theme.danger}18` }]}>
+          <View style={[styles.frozenBanner, { backgroundColor: `${theme.danger}18` }]}>
             <Ionicons name="lock-closed" size={18} color={theme.danger} />
             <Text style={[styles.frozenBannerText, { color: theme.danger }]}>
               Your account is restricted. Contact support to resolve this.
             </Text>
-          </FadeInView>
+          </View>
         )}
 
         {/* BALANCE CARD */}
-        <FadeInView delay={60} distance={22} scaleFrom={0.97}>
         <LinearGradient colors={['#2A1F45', '#1A1525']} style={styles.balanceCard}>
           <View style={styles.balanceTopRow}>
             <Text style={styles.balanceLabel}>Total Balance</Text>
-            <PressableScale onPress={toggleBalanceHidden} activeScale={0.85} style={styles.eyeIconWrap}>
+            <TouchableOpacity onPress={toggleBalanceHidden} style={styles.eyeIconWrap}>
               <Ionicons name={isBalanceHidden ? 'eye-off' : 'eye'} size={18} color="#A09CAB" />
-            </PressableScale>
+            </TouchableOpacity>
           </View>
-          {/* Value counts up from 0 on mount and whenever the wallet syncs. */}
           <AnimatedNumber
             value={balance}
             hidden={isBalanceHidden}
-            format={formatCurrency}
+            format={(n) => formatCurrency(n)}
             style={styles.balanceValue}
           />
           <View style={styles.cardBottomRow}>
-            <PressableScale style={styles.fundBtn} onPress={() => setFundModalVisible(true)} dim={false}>
+            <TouchableOpacity style={styles.fundBtn} onPress={() => setFundModalVisible(true)}>
               <Ionicons name="add" size={16} color="#fff" />
               <Text style={styles.fundBtnText}>Add Money</Text>
-            </PressableScale>
-            <PressableScale style={styles.transferBtn} onPress={() => navigation.navigate('Transfer')} dim={false}>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.transferBtn} onPress={() => navigation.navigate('Transfer')}>
               <Text style={styles.transferBtnText}>Transfer</Text>
-            </PressableScale>
+            </TouchableOpacity>
           </View>
         </LinearGradient>
-        </FadeInView>
 
         {/* QUICK ACTIONS GRID */}
         {!isFocusMode && (
           <View style={styles.gridContainer}>
-            {QUICK_ACTIONS.map((action, i) => (
-              <FadeInView key={action.key} index={i} delay={120} stagger={45} distance={14} style={styles.gridItem}>
-                <PressableScale onPress={() => handleQuickAction(action.key)} activeScale={0.9} style={styles.gridItemInner}>
-                  <View style={[styles.gridIconWrap, { backgroundColor: theme.surface }]}>
-                    <Ionicons name={action.icon} size={24} color={theme.primary} />
-                  </View>
-                  <Text style={[styles.gridLabel, { color: theme.text }]}>{action.label}</Text>
-                </PressableScale>
-              </FadeInView>
+            {QUICK_ACTIONS.map((action) => (
+              <PressableScale key={action.key} style={styles.gridItem} onPress={() => handleQuickAction(action.key)}>
+                <View style={[styles.gridIconWrap, { backgroundColor: theme.surface }]}>
+                  <Ionicons name={action.icon} size={24} color={theme.primary} />
+                </View>
+                <Text style={[styles.gridLabel, { color: theme.text }]}>{action.label}</Text>
+              </PressableScale>
             ))}
           </View>
         )}
 
         {/* RECENT ACTIVITY */}
-        <FadeInView delay={200} style={styles.sectionHeader}>
+        <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Recent Activity</Text>
           {!isFocusMode && (
             <TouchableOpacity onPress={() => navigation.navigate('History')}>
               <Text style={[styles.seeAll, { color: theme.primary }]}>See all</Text>
             </TouchableOpacity>
           )}
-        </FadeInView>
+        </View>
 
         <View style={{ marginHorizontal: 20, backgroundColor: theme.surface, borderRadius: 16, overflow: 'hidden', paddingBottom: transactions?.length === 0 ? 0 : 10 }}>
           {transactions?.length === 0 ? (
-            <FadeInView scaleFrom={0.94} style={styles.emptyStateContainer}>
+            <View style={styles.emptyStateContainer}>
               <View style={[styles.emptyIconWrap, { backgroundColor: theme.background }]}>
                 <Ionicons name="wallet-outline" size={32} color={theme.textMuted} />
               </View>
               <Text style={[styles.emptyTitle, { color: theme.text }]}>No Transactions Yet</Text>
               <Text style={[styles.emptySub, { color: theme.textMuted }]}>Your financial journey starts here.</Text>
-            </FadeInView>
+            </View>
           ) : (
-            transactions?.slice(0, isFocusMode ? 10 : 5).map((txn, i) => (
-              <TransactionRow key={txn.id} txn={txn} index={i} />
+            transactions?.slice(0, isFocusMode ? 10 : 5).map((txn) => (
+              <TransactionRow key={txn.id} txn={txn} />
             ))
           )}
         </View>
@@ -202,15 +232,13 @@ export default function DashboardScreen({ navigation }) {
               </TouchableOpacity>
             </View>
             <View style={styles.gridContainer}>
-              {MORE_ACTIONS.map((action, i) => (
-                <FadeInView key={action.key} index={i} stagger={50} distance={14} style={styles.gridItem}>
-                  <PressableScale onPress={() => handleMoreAction(action.key)} activeScale={0.9} style={styles.gridItemInner}>
-                    <View style={[styles.gridIconWrap, { backgroundColor: theme.surface }]}>
-                      <Ionicons name={action.icon} size={24} color={theme.primary} />
-                    </View>
-                    <Text style={[styles.gridLabel, { color: theme.text }]}>{action.label}</Text>
-                  </PressableScale>
-                </FadeInView>
+              {MORE_ACTIONS.map((action) => (
+                <TouchableOpacity key={action.key} style={styles.gridItem} onPress={() => handleMoreAction(action.key)}>
+                  <View style={[styles.gridIconWrap, { backgroundColor: theme.surface }]}>
+                    <Ionicons name={action.icon} size={24} color={theme.primary} />
+                  </View>
+                  <Text style={[styles.gridLabel, { color: theme.text }]}>{action.label}</Text>
+                </TouchableOpacity>
               ))}
             </View>
             <SafeAreaView edges={['bottom']} />
@@ -223,7 +251,6 @@ export default function DashboardScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  gridItemInner: { alignItems: 'center', width: '100%' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16 },
   userInfoRow: { flexDirection: 'row', alignItems: 'center' },
   hello: { fontSize: 16, fontWeight: '700', fontFamily: fonts.bold },

@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import GradientButton from '../components/GradientButton';
+import SuccessModal from '../components/SuccessModal';
+import PressableScale from '../components/PressableScale';
+import PointsRedemptionToggle, { computeMaxRedeemablePoints } from '../components/PointsRedemptionToggle';
 import { useTheme } from '../context/ThemeContext';
 import { useWallet } from '../context/WalletContext';
 import { formatCurrency } from '../utils/format';
@@ -25,14 +28,16 @@ const PROVIDERS = {
 export default function BillsScreen({ navigation, route }) {
   const { alert } = useAlert();
   const { theme } = useTheme();
-  const { payBill, balance } = useWallet();
+  const { payBill, balance, user } = useWallet();
   const [category, setCategory] = useState(route?.params?.initialCategory || null);
   const [provider, setProvider] = useState('');
   const [reference, setReference] = useState('');
   const [amount, setAmount] = useState('');
   const [pin, setPin] = useState('');
+  const [successInfo, setSuccessInfo] = useState(null);
   const [pinModalVisible, setPinModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [usePoints, setUsePoints] = useState(false);
 
   const activeCategory = CATEGORIES.find((c) => c.key === category);
 
@@ -42,6 +47,7 @@ export default function BillsScreen({ navigation, route }) {
     setReference('');
     setAmount('');
     setPin('');
+    setUsePoints(false);
   };
 
   const openPinModal = () => {
@@ -58,6 +64,7 @@ export default function BillsScreen({ navigation, route }) {
       alert('Invalid PIN', 'Please enter your 4-digit transaction PIN.', null, { type: 'warning' });
       return;
     }
+    const pointsToRedeem = usePoints ? computeMaxRedeemablePoints(amount, user?.rewardPoints) : 0;
     setLoading(true);
     const res = await payBill({
       billerName: provider,
@@ -65,6 +72,7 @@ export default function BillsScreen({ navigation, route }) {
       amount,
       reference,
       pin,
+      pointsToRedeem,
     });
     setLoading(false);
     setPinModalVisible(false);
@@ -73,9 +81,8 @@ export default function BillsScreen({ navigation, route }) {
       alert('Payment failed', res.error, null, { type: 'error' });
       return;
     }
-    alert('Payment Successful', `Paid ${formatCurrency(amount)} to ${provider}.`, [
-      { text: 'Done', onPress: () => { reset(); navigation.navigate('Main'); } },
-    ], { type: 'success' });
+    const savingsNote = pointsToRedeem > 0 ? ` (saved ${formatCurrency(pointsToRedeem / 10)} with points)` : '';
+    setSuccessInfo({ message: `Paid ${formatCurrency(amount)} to ${provider}.${savingsNote}` });
   };
 
   // View 1: Categories Grid
@@ -110,13 +117,13 @@ export default function BillsScreen({ navigation, route }) {
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Utilities</Text>
           <View style={styles.grid}>
             {CATEGORIES.map((c, idx) => (
-              <FadeInView key={c.key} delay={idx * 50} style={styles.gridItemWrap}>
-                <TouchableOpacity style={[styles.gridItem, { backgroundColor: theme.surface }]} onPress={() => setCategory(c.key)}>
+              <FadeInView key={c.key} index={idx} style={styles.gridItemWrap}>
+                <PressableScale style={[styles.gridItem, { backgroundColor: theme.surface }]} onPress={() => setCategory(c.key)}>
                   <View style={[styles.categoryIconWrap, { backgroundColor: `${c.color}20` }]}>
                     <Ionicons name={c.icon} size={24} color={c.color} />
                   </View>
                   <Text style={[styles.gridLabel, { color: theme.text }]}>{c.label}</Text>
-                </TouchableOpacity>
+                </PressableScale>
               </FadeInView>
             ))}
           </View>
@@ -186,6 +193,14 @@ export default function BillsScreen({ navigation, route }) {
             <Text style={[styles.modalSubtitle, { color: theme.textMuted }]}>
               Pay {formatCurrency(amount)} to {provider} for {reference}
             </Text>
+
+            <PointsRedemptionToggle
+              amount={amount}
+              availablePoints={user?.rewardPoints}
+              enabled={usePoints}
+              onToggle={setUsePoints}
+            />
+
             <TextInput
               style={[styles.pinInput, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
               placeholder="••••"
@@ -204,6 +219,13 @@ export default function BillsScreen({ navigation, route }) {
           </View>
         </View>
       </Modal>
+
+      <SuccessModal
+        visible={!!successInfo}
+        title="Payment Successful"
+        message={successInfo?.message}
+        onClose={() => { setSuccessInfo(null); reset(); navigation.navigate('Main'); }}
+      />
     </SafeAreaView>
   );
 }

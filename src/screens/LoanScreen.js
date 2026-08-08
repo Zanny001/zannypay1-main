@@ -100,7 +100,7 @@ export default function LoanScreen({ navigation }) {
                 <Text style={[styles.offerTitle, { color: theme.text }]}>{formatCurrency(creditLimit)}</Text>
               </View>
               <Text style={[styles.periodText, { color: theme.textMuted }]}>
-                Based on your Zannypay wallet activity. Flat 5% fee, repay anytime before the due date.
+                Based on your ZannyPay wallet activity. Flat 5% fee, repay anytime before the due date.
               </Text>
             </View>
           </View>
