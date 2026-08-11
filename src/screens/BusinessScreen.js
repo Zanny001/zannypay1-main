@@ -107,9 +107,17 @@ export default function BusinessScreen({ navigation }) {
             </FadeInView>
 
             <FadeInView delay={220}>
-              <TouchableOpacity style={[styles.invoiceLink, { backgroundColor: theme.surface }]} onPress={() => navigation.navigate('Invoice')}>
+              <TouchableOpacity style={[styles.invoiceLink, { backgroundColor: theme.surface }]} onPress={() => navigation.navigate('InvoicesList')}>
                 <Ionicons name="document-text-outline" size={20} color={theme.primary} />
-                <Text style={[styles.invoiceLinkText, { color: theme.text }]}>Create an Invoice</Text>
+                <Text style={[styles.invoiceLinkText, { color: theme.text }]}>Invoices</Text>
+                <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
+              </TouchableOpacity>
+            </FadeInView>
+
+            <FadeInView delay={260}>
+              <TouchableOpacity style={[styles.invoiceLink, { backgroundColor: theme.surface, marginTop: 12 }]} onPress={() => navigation.navigate('RecurringTransfers')}>
+                <Ionicons name="repeat-outline" size={20} color={theme.primary} />
+                <Text style={[styles.invoiceLinkText, { color: theme.text }]}>Recurring Transfers</Text>
                 <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
               </TouchableOpacity>
             </FadeInView>

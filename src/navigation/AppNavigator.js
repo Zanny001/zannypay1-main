@@ -20,6 +20,10 @@ import SupportScreen from '../screens/SupportScreen';
 import SupportChatScreen from '../screens/SupportChatScreen';
 import InvoiceScreen from '../screens/InvoiceScreen';
 import BusinessScreen from '../screens/BusinessScreen';
+import InvoicesListScreen from '../screens/InvoicesListScreen';
+import InvoiceDetailScreen from '../screens/InvoiceDetailScreen';
+import RecurringTransfersScreen from '../screens/RecurringTransfersScreen';
+import CreateRecurringTransferScreen from '../screens/CreateRecurringTransferScreen';
 
 // Elite Modules
 import AnalyticsScreen from '../screens/AnalyticsScreen';
@@ -78,6 +82,10 @@ function MainStack() {
       <Stack.Screen name="Airtime" component={AirtimeScreen} options={{ presentation: 'card', animation: 'slide_from_right' }} />
       <Stack.Screen name="Invoice" component={InvoiceScreen} options={{ presentation: 'modal' }} />
       <Stack.Screen name="Business" component={BusinessScreen} options={{ presentation: 'card', animation: 'slide_from_right' }} />
+      <Stack.Screen name="InvoicesList" component={InvoicesListScreen} options={{ presentation: 'card', animation: 'slide_from_right' }} />
+      <Stack.Screen name="InvoiceDetail" component={InvoiceDetailScreen} options={{ presentation: 'card', animation: 'slide_from_right' }} />
+      <Stack.Screen name="RecurringTransfers" component={RecurringTransfersScreen} options={{ presentation: 'card', animation: 'slide_from_right' }} />
+      <Stack.Screen name="CreateRecurringTransfer" component={CreateRecurringTransferScreen} options={{ presentation: 'card', animation: 'slide_from_right' }} />
       <Stack.Screen name="Beneficiaries" component={BeneficiariesScreen} options={{ presentation: 'modal', animation: 'slide_from_right' }} />
       <Stack.Screen name="QRPay" component={QRPayScreen} options={{ presentation: 'modal', animation: 'fade_from_bottom' }} />
 

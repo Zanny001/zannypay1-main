@@ -377,6 +377,80 @@ export function WalletProvider({ children }) {
     }
   }, []);
 
+  const fetchInvoices = useCallback(async () => {
+    try {
+      const res = await apiGet('/invoices');
+      setInvoices(res || []);
+      return { ok: true, data: res };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }, []);
+
+  const fetchInvoiceDetail = useCallback(async (invoiceId) => {
+    try {
+      const res = await apiGet(`/invoices/${invoiceId}`);
+      return { ok: true, data: res };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }, []);
+
+  const markInvoicePaid = useCallback(async (invoiceId) => {
+    try {
+      const res = await apiPatch(`/invoices/${invoiceId}/mark-paid`, {});
+      setInvoices((prev) => prev.map((inv) => (inv.id === invoiceId ? res : inv)));
+      return { ok: true, data: res };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }, []);
+
+  const createRecurringTransfer = useCallback(async ({ recipientAccount, amount, note, frequency, pin }) => {
+    try {
+      const res = await apiPost('/recurring-transfers', { recipientAccount, amount: parseFloat(amount), note, frequency, pin });
+      return { ok: true, data: res };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }, []);
+
+  const fetchRecurringTransfers = useCallback(async () => {
+    try {
+      const res = await apiGet('/recurring-transfers');
+      return { ok: true, data: res || [] };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }, []);
+
+  const pauseRecurringTransfer = useCallback(async (id) => {
+    try {
+      const res = await apiPatch(`/recurring-transfers/${id}/pause`, {});
+      return { ok: true, data: res };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }, []);
+
+  const resumeRecurringTransfer = useCallback(async (id) => {
+    try {
+      const res = await apiPatch(`/recurring-transfers/${id}/resume`, {});
+      return { ok: true, data: res };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }, []);
+
+  const cancelRecurringTransfer = useCallback(async (id) => {
+    try {
+      const res = await apiPatch(`/recurring-transfers/${id}/cancel`, {});
+      return { ok: true, data: res };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }, []);
+
   const requestVirtualCard = useCallback(async () => {
     try {
       const res = await apiPost('/cards/request');
@@ -671,6 +745,8 @@ export function WalletProvider({ children }) {
     loan, creditLimit, requestLoan, repayLoan,
     isBalanceHidden, toggleBalanceHidden,
     requestVirtualCard, toggleCardFreeze, cards, invoices,
+    fetchInvoices, fetchInvoiceDetail, markInvoicePaid,
+    createRecurringTransfer, fetchRecurringTransfers, pauseRecurringTransfer, resumeRecurringTransfer, cancelRecurringTransfer,
     budgets, setBudgetLimit, removeBudget,
     disputes, createDispute,
     referrals, fetchReferrals, fetchLeaderboard, activateBusiness, fetchBusinessProfile,
