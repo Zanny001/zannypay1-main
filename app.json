@@ -17,15 +17,34 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.zannypay.app",
-      "icon": "./assets/icon.png"
+      "icon": "./assets/icon.png",
+      "infoPlist": {
+        "NSCameraUsageDescription": "ZannyPay uses your camera to scan a Pay QR code."
+      }
     },
     "android": {
       "package": "com.zannypay.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0D2261"
-      }
+      },
+      "permissions": ["CAMERA"]
     },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#0D2261"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "ZannyPay uses your camera to scan a Pay QR code."
+        }
+      ]
+    ],
     "web": {
       "bundler": "metro",
       "favicon": "./assets/favicon.png"

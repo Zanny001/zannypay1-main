@@ -21,6 +21,22 @@ const TYPE_META = {
   account_unfrozen: { icon: 'lock-open', title: 'Account reactivated', category: 'payments' },
   chat_reply: { icon: 'chatbubble-ellipses', title: 'Support', category: 'payments' },
   fraud_alert: { icon: 'shield-checkmark', title: 'Security notice', category: 'payments' },
+  recurring_transfer_sent: { icon: 'repeat', title: 'Recurring transfer sent', category: 'payments' },
+  recurring_transfer_failed: { icon: 'alert-circle', title: 'Recurring transfer failed', category: 'payments' },
+  recurring_transfer_paused: { icon: 'pause-circle', title: 'Recurring transfer paused', category: 'payments' },
+  // Added alongside the backend's new call sites for these — previously a
+  // transfer/bill/airtime purchase only ever reached the customer as an
+  // email, never as a push or an in-app row like every other event type
+  // here does.
+  transfer_sent: { icon: 'arrow-up-circle', title: 'Money sent', category: 'payments' },
+  transfer_received: { icon: 'arrow-down-circle', title: 'Money received', category: 'payments' },
+  bill_paid: { icon: 'receipt', title: 'Bill payment', category: 'payments' },
+  airtime_purchased: { icon: 'phone-portrait', title: 'Airtime & data', category: 'payments' },
+  transaction_reversed: { icon: 'return-up-back', title: 'Transaction reversed', category: 'payments' },
+  card_frozen: { icon: 'card', title: 'Card frozen', category: 'payments' },
+  card_funded: { icon: 'card', title: 'Card funded', category: 'payments' },
+  loan_disbursed: { icon: 'cash', title: 'Loan disbursed', category: 'payments' },
+  loan_repayment_due: { icon: 'alarm', title: 'Repayment due', category: 'payments' },
 };
 
 // Real, backend-driven events — KYC decisions, dispute resolutions,

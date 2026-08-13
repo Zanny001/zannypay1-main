@@ -5,6 +5,7 @@ import { apiGet, apiPost, apiPatch, apiDelete, getSavedToken, saveToken, clearTo
 import { logLoginActivity } from '../utils/loginActivity';
 import { SyncEngine } from '../services/SyncEngine';
 import { BiometricAuth } from '../services/biometricAuth';
+import { registerForPushNotifications, unregisterPushNotifications } from '../utils/pushNotifications';
 
 const WalletContext = createContext(null);
 
@@ -56,6 +57,7 @@ export function WalletProvider({ children }) {
   const [budgets, setBudgets] = useState([]);
   const [disputes, setDisputes] = useState([]);
   const [referrals, setReferrals] = useState({ referralCode: null, totalReferred: 0, referred: [] });
+  const [beneficiaries, setBeneficiaries] = useState([]);
 
   const localInvoicesRef = useRef([]);
 
@@ -181,6 +183,7 @@ export function WalletProvider({ children }) {
           setIsAuthenticated(true);
           await syncWallet();
           drainOfflineQueue();
+          registerForPushNotifications(); // re-registers on every cold start so a token rotated by Expo/the OS stays current
         }
       } catch (error) {
         console.error('Storage load error:', error);
@@ -216,6 +219,7 @@ export function WalletProvider({ children }) {
           setBalance(processedBalance);
           await saveJSON(STORAGE_KEYS.BALANCE, processedBalance);
         }
+        registerForPushNotifications();
         return { ok: true };
       }
       return { ok: false, error: res?.error || 'Registration failed.' };
@@ -236,6 +240,7 @@ export function WalletProvider({ children }) {
         await saveJSON(STORAGE_KEYS.USER, res.user);
         await syncWallet();
         await logLoginActivity();
+        registerForPushNotifications();
         return { ok: true };
       }
       return { ok: false, error: res?.error || 'Invalid telephone number or PIN.' };
@@ -262,6 +267,7 @@ export function WalletProvider({ children }) {
         setIsAuthenticated(true);
         await syncWallet();
         await logLoginActivity();
+        registerForPushNotifications();
         return { ok: true };
       }
       throw new Error('Session expired');
@@ -282,6 +288,7 @@ export function WalletProvider({ children }) {
     setLoan(null);
     setServerCreditLimit(null);
     await clearToken();
+    unregisterPushNotifications(); // best-effort — see pushNotifications.js; must never block or fail logout itself
     // An explicit logout means fully logged out — the biometric
     // convenience credential goes with it, not just the active session.
     if (user?.phone) await BiometricAuth.clearFor(user.phone);
@@ -451,12 +458,12 @@ export function WalletProvider({ children }) {
     }
   }, []);
 
-  const requestVirtualCard = useCallback(async () => {
+  const requestVirtualCard = useCallback(async (network) => {
     try {
-      const res = await apiPost('/cards/request');
-      if (res && res.cardNumber) {
+      const res = await apiPost('/cards/request', network ? { network } : undefined);
+      if (res && (res.cardNumber || res.last4)) {
         await syncWallet();
-        return { ok: true };
+        return { ok: true, card: res };
       }
       return { ok: false, error: res?.error || 'Failed to generate card' };
     } catch (err) {
@@ -476,6 +483,71 @@ export function WalletProvider({ children }) {
       return { ok: false, error: err.message };
     }
   }, [syncWallet]);
+
+  // Links an existing external Visa/Mastercard/Verve card as a funding
+  // source — see cards/providers/card-linking.provider.ts on the backend
+  // for why `authorizationCode` comes from a processor's own card-
+  // collection SDK, never a raw PAN typed into this app.
+  const linkExternalCard = useCallback(async (authorizationCode) => {
+    try {
+      const res = await apiPost('/cards/link', { authorizationCode });
+      if (res && res.id) {
+        await syncWallet();
+        return { ok: true, card: res };
+      }
+      return { ok: false, error: res?.error || 'Could not link this card.' };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }, [syncWallet]);
+
+  const setDefaultCard = useCallback(async (cardId) => {
+    try {
+      const res = await apiPost(`/cards/${cardId}/default`);
+      if (res && res.id) {
+        await syncWallet();
+        return { ok: true };
+      }
+      return { ok: false, error: 'Could not set this as your default card.' };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }, [syncWallet]);
+
+  const updateCardLimits = useCallback(async (cardId, dailyLimit, monthlyLimit) => {
+    try {
+      const res = await apiPatch(`/cards/${cardId}/limits`, {
+        ...(dailyLimit !== undefined && { dailyLimit: parseFloat(dailyLimit) }),
+        ...(monthlyLimit !== undefined && { monthlyLimit: parseFloat(monthlyLimit) }),
+      });
+      if (res && res.id) {
+        await syncWallet();
+        return { ok: true, card: res };
+      }
+      return { ok: false, error: res?.error || 'Could not update card limits.' };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }, [syncWallet]);
+
+  const removeCard = useCallback(async (cardId) => {
+    try {
+      await apiDelete(`/cards/${cardId}`);
+      await syncWallet();
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }, [syncWallet]);
+
+  const fetchCardActivity = useCallback(async (cardId) => {
+    try {
+      const res = await apiGet(`/cards/${cardId}/activity`);
+      return { ok: true, data: res || [] };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }, []);
 
   const totalCredits = useMemo(() => {
     return (transactions || []).filter((t) => t.type === 'credit').reduce((sum, t) => sum + Math.abs(toNumber(t.amount)), 0);
@@ -639,6 +711,62 @@ export function WalletProvider({ children }) {
   }, []);
 
   // ==========================================
+  // Beneficiaries — master audit, Section 5: previously BeneficiariesScreen
+  // read/wrote through AsyncStorage only, so a reinstall or new phone
+  // silently lost every saved recipient. Now backed by the real
+  // /beneficiaries endpoints, same sync-across-devices guarantee every
+  // other piece of account data already has.
+  // ==========================================
+  const fetchBeneficiaries = useCallback(async () => {
+    try {
+      const res = await apiGet('/beneficiaries');
+      setBeneficiaries(res || []);
+      return { ok: true, data: res };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }, []);
+
+  const saveBeneficiary = useCallback(async ({ accountNumber, name, bank, nickname }) => {
+    try {
+      const res = await apiPost('/beneficiaries', { accountNumber, name, bank, nickname });
+      if (res && res.id) {
+        setBeneficiaries((prev) => {
+          const exists = prev.some((b) => b.id === res.id);
+          return exists ? prev.map((b) => (b.id === res.id ? res : b)) : [res, ...prev];
+        });
+        return { ok: true, beneficiary: res };
+      }
+      return { ok: false, error: 'Could not save this recipient.' };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }, []);
+
+  const updateBeneficiary = useCallback(async (id, { nickname, isFavorite }) => {
+    try {
+      const res = await apiPatch(`/beneficiaries/${id}`, { nickname, isFavorite });
+      if (res && res.id) {
+        setBeneficiaries((prev) => prev.map((b) => (b.id === id ? res : b)));
+        return { ok: true, beneficiary: res };
+      }
+      return { ok: false, error: 'Could not update this recipient.' };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }, []);
+
+  const removeBeneficiary = useCallback(async (id) => {
+    try {
+      await apiDelete(`/beneficiaries/${id}`);
+      setBeneficiaries((prev) => prev.filter((b) => b.id !== id));
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }, []);
+
+  // ==========================================
   // Spending budgets — per-category monthly limits, backed by the real
   // /budgets endpoints so they sync across devices/reinstalls (unlike
   // savings goals/loans, which the backend has no GET for yet).
@@ -744,13 +872,14 @@ export function WalletProvider({ children }) {
     savingsGoals, createSavingsGoal, depositToSavings, withdrawFromSavings, savingsApy,
     loan, creditLimit, requestLoan, repayLoan,
     isBalanceHidden, toggleBalanceHidden,
-    requestVirtualCard, toggleCardFreeze, cards, invoices,
+    requestVirtualCard, toggleCardFreeze, linkExternalCard, setDefaultCard, updateCardLimits, removeCard, fetchCardActivity, cards, invoices,
     fetchInvoices, fetchInvoiceDetail, markInvoicePaid,
     createRecurringTransfer, fetchRecurringTransfers, pauseRecurringTransfer, resumeRecurringTransfer, cancelRecurringTransfer,
     budgets, setBudgetLimit, removeBudget,
     disputes, createDispute,
     referrals, fetchReferrals, fetchLeaderboard, activateBusiness, fetchBusinessProfile,
     updateProfile, changePin, resolveRecipient, dailyCheckIn,
+    beneficiaries, fetchBeneficiaries, saveBeneficiary, updateBeneficiary, removeBeneficiary,
   };
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;

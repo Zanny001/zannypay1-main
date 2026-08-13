@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, SectionList, TouchableOpacity, TextInput, Modal, LayoutAnimation, Platform, UIManager } from 'react-native';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, SectionList, TouchableOpacity, TextInput, Modal, LayoutAnimation, Platform, UIManager, ActivityIndicator } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useWallet } from '../context/WalletContext';
-import { saveJSON, loadJSON } from '../utils/storage';
 import { formatDate } from '../utils/format';
 import GradientButton from '../components/GradientButton';
 import Card from '../components/Card';
@@ -15,7 +14,6 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const STORAGE_KEY = 'zannypay:beneficiaries';
 const BANKS = ['ZannyPay', 'Access Bank', 'First Bank', 'GTBank', 'UBA', 'Zenith Bank', 'Kuda', 'Opay'];
 const ALPHABET = '#ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
@@ -27,30 +25,34 @@ function sectionLetterFor(name) {
 export default function BeneficiariesScreen({ navigation }) {
   const { theme } = useTheme();
   const { alert } = useAlert();
-  const { transactions } = useWallet();
-  const [beneficiaries, setBeneficiaries] = useState([]);
+  // Master audit, Section 5: this screen used to read/write through
+  // AsyncStorage only (utils/storage) — a reinstall or new phone silently
+  // lost every saved recipient. `beneficiaries` now comes from the real
+  // backend, same sync-across-devices guarantee as transactions/cards/
+  // everything else in this app.
+  const { transactions, beneficiaries, fetchBeneficiaries, saveBeneficiary, removeBeneficiary } = useWallet();
+  const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
   const [addVisible, setAddVisible] = useState(false);
   const [name, setName] = useState('');
   const [account, setAccount] = useState('');
   const [bank, setBank] = useState(BANKS[0]);
+  const [saving, setSaving] = useState(false);
   const listRef = useRef(null);
-
-  const load = useCallback(async () => {
-    const saved = await loadJSON(STORAGE_KEY, []);
-    setBeneficiaries(saved || []);
-  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      load();
-    }, [load])
+      setRefreshing(true);
+      fetchBeneficiaries().finally(() => setRefreshing(false));
+    }, [fetchBeneficiaries])
   );
 
-  // Most recent transfer per beneficiary, derived from real transaction
-  // history rather than tracked separately — a transfer already records
-  // the account it targeted (Transaction.recipientAccount), so this is
-  // just a lookup, not new state to keep in sync.
+  // Most recent transfer per beneficiary. The backend now tracks this
+  // directly (Beneficiary.lastPaidAt, bumped by TransactionsService after
+  // every transfer to an already-saved account) — falling back to a
+  // derived lookup from transaction history only covers the edge case of
+  // a beneficiary saved before that bookkeeping existed, or one whose
+  // paid-to transaction has aged out of the locally-loaded history.
   const lastTransferByAccount = useMemo(() => {
     const map = {};
     for (const txn of transactions || []) {
@@ -65,7 +67,7 @@ export default function BeneficiariesScreen({ navigation }) {
   }, [transactions]);
 
   const sections = useMemo(() => {
-    const filtered = beneficiaries.filter((b) => b.name.toLowerCase().includes(query.trim().toLowerCase()));
+    const filtered = (beneficiaries || []).filter((b) => b.name.toLowerCase().includes(query.trim().toLowerCase()));
     const sorted = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
     const grouped = {};
     for (const b of sorted) {
@@ -91,11 +93,14 @@ export default function BeneficiariesScreen({ navigation }) {
       alert('Missing details', 'Please enter a name and account number.');
       return;
     }
-    const entry = { id: Date.now().toString(), name, account, bank };
-    const updated = [entry, ...beneficiaries];
+    setSaving(true);
+    const res = await saveBeneficiary({ accountNumber: account, name, bank });
+    setSaving(false);
+    if (!res.ok) {
+      alert('Error', res.error || 'Could not save this recipient.');
+      return;
+    }
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setBeneficiaries(updated);
-    await saveJSON(STORAGE_KEY, updated);
     setName('');
     setAccount('');
     setBank(BANKS[0]);
@@ -109,10 +114,9 @@ export default function BeneficiariesScreen({ navigation }) {
         text: 'Remove',
         style: 'destructive',
         onPress: async () => {
-          const updated = beneficiaries.filter((b) => b.id !== id);
           LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-          setBeneficiaries(updated);
-          await saveJSON(STORAGE_KEY, updated);
+          const res = await removeBeneficiary(id);
+          if (!res.ok) alert('Error', res.error || 'Could not remove this recipient.');
         },
       },
     ]);
@@ -120,7 +124,7 @@ export default function BeneficiariesScreen({ navigation }) {
 
   const handleSendTo = (item) => {
     navigation.navigate('Transfer', {
-      prefillAccount: item.account,
+      prefillAccount: item.accountNumber,
       prefillBank: item.bank === 'ZannyPay' ? null : item.bank,
       prefillName: item.name,
     });
@@ -167,7 +171,7 @@ export default function BeneficiariesScreen({ navigation }) {
             </View>
           )}
           renderItem={({ item, index }) => {
-            const lastTransfer = lastTransferByAccount[item.account];
+            const lastTransfer = item.lastPaidAt || lastTransferByAccount[item.accountNumber];
             return (
               <FadeInView index={index % 8}>
                 <Card style={styles.row}>
@@ -177,7 +181,7 @@ export default function BeneficiariesScreen({ navigation }) {
                     </View>
                     <View style={{ flex: 1, marginLeft: 14 }}>
                       <Text style={[styles.rowName, { color: theme.text }]}>{item.name}</Text>
-                      <Text style={[styles.rowSub, { color: theme.textMuted }]}>{item.bank} · {item.account}</Text>
+                      <Text style={[styles.rowSub, { color: theme.textMuted }]}>{item.bank || 'ZannyPay'} · {item.accountNumber}</Text>
                       {!!lastTransfer && (
                         <Text style={[styles.rowLastTransfer, { color: theme.textMuted }]}>
                           Last transfer {formatDate(lastTransfer)}
@@ -194,22 +198,26 @@ export default function BeneficiariesScreen({ navigation }) {
             );
           }}
           ListEmptyComponent={
-            <View style={styles.emptyStateContainer}>
-              <View style={[styles.emptyIconWrap, { backgroundColor: theme.surfaceAlt }]}>
-                <Ionicons name="people-outline" size={32} color={theme.primary} />
+            refreshing ? (
+              <ActivityIndicator color={theme.primary} style={{ marginTop: 60 }} />
+            ) : (
+              <View style={styles.emptyStateContainer}>
+                <View style={[styles.emptyIconWrap, { backgroundColor: theme.surfaceAlt }]}>
+                  <Ionicons name="people-outline" size={32} color={theme.primary} />
+                </View>
+                <Text style={[styles.emptyTitle, { color: theme.text }]}>
+                  {query ? 'No matches' : 'No Saved Recipients'}
+                </Text>
+                <Text style={[styles.emptySub, { color: theme.textMuted }]}>
+                  {query ? 'Try a different name.' : 'Add people you pay often for one-tap transfers.'}
+                </Text>
+                {!query && (
+                  <TouchableOpacity style={[styles.emptyBtn, { backgroundColor: theme.primary }]} onPress={() => setAddVisible(true)}>
+                    <Text style={styles.emptyBtnText}>Add Recipient</Text>
+                  </TouchableOpacity>
+                )}
               </View>
-              <Text style={[styles.emptyTitle, { color: theme.text }]}>
-                {query ? 'No matches' : 'No Saved Recipients'}
-              </Text>
-              <Text style={[styles.emptySub, { color: theme.textMuted }]}>
-                {query ? 'Try a different name.' : 'Add people you pay often for one-tap transfers.'}
-              </Text>
-              {!query && (
-                <TouchableOpacity style={[styles.emptyBtn, { backgroundColor: theme.primary }]} onPress={() => setAddVisible(true)}>
-                  <Text style={styles.emptyBtnText}>Add Recipient</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            )
           }
         />
 
@@ -265,7 +273,7 @@ export default function BeneficiariesScreen({ navigation }) {
               ))}
             </View>
 
-            <GradientButton title="Save Recipient" onPress={handleAdd} style={{ marginTop: 20 }} />
+            <GradientButton title="Save Recipient" onPress={handleAdd} loading={saving} style={{ marginTop: 20 }} />
             <TouchableOpacity style={styles.cancelBtn} onPress={() => setAddVisible(false)}>
               <Text style={[styles.cancelBtnText, { color: theme.textMuted }]}>Cancel</Text>
             </TouchableOpacity>

@@ -1,26 +1,34 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, TextInput, Share, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import QRCode from 'react-native-qrcode-svg';
 import { colors } from '../theme/colors';
 import { useWallet } from '../context/WalletContext';
+import { useAlert } from '../context/AlertContext';
 import { maskAccount } from '../utils/format';
 import GradientButton from '../components/GradientButton';
 import FadeInView from '../components/FadeInView';
+import { haptic } from '../theme/motion';
 
-export default function QRPayScreen({ navigation }) {
-  const { user } = useWallet();
+// Master audit, Section 5: "QRPayScreen only ever generates a code — there
+// is no camera, no scan mode, nowhere in the app to actually read someone
+// else's QR. A QR *pay* screen that can't scan is half a feature." This
+// adds the scan half as a second tab, reusing the exact same payload shape
+// "My Code" already generates, and hands a successful scan straight to the
+// existing TransferScreen (via prefillAccount/prefillAmount) rather than
+// building a second, parallel payment path.
+
+function MyCodeTab({ user }) {
   const accountNumber = user?.accountNumber || user?.phone || '0000000000';
-  
   const [requestAmount, setRequestAmount] = useState('');
   const pulse = useRef(new Animated.Value(0)).current;
 
-  // The actual payload another app/phone will see when they scan it
   const qrPayload = JSON.stringify({
     app: 'ZannyPay',
     account: accountNumber,
     name: user?.name || 'ZannyPay Member',
-    amount: requestAmount ? parseFloat(requestAmount) : null
+    amount: requestAmount ? parseFloat(requestAmount) : null,
   });
 
   useEffect(() => {
@@ -49,50 +57,150 @@ export default function QRPayScreen({ navigation }) {
   };
 
   return (
+    <FadeInView style={styles.scroll}>
+      <View style={styles.codeWrap}>
+        <Animated.View style={[styles.glow, { transform: [{ scale: glowScale }], opacity: glowOpacity }]} />
+        <View style={styles.codeCard}>
+          <QRCode value={qrPayload} size={180} color={colors.textDark} backgroundColor="white" />
+          <Text style={styles.codeCaption}>Scan to pay instantly</Text>
+        </View>
+      </View>
+
+      <View style={styles.identityBlock}>
+        <Text style={styles.name}>{user?.name || 'ZannyPay Member'}</Text>
+        <Text style={styles.account}>{maskAccount(accountNumber)} · ZannyPay</Text>
+      </View>
+
+      <View style={styles.requestBlock}>
+        <Text style={styles.label}>Request a specific amount (optional)</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="₦0.00"
+          keyboardType="numeric"
+          value={requestAmount}
+          onChangeText={setRequestAmount}
+        />
+      </View>
+
+      <GradientButton title="Share My Code" onPress={handleShare} style={{ marginTop: 24 }} />
+    </FadeInView>
+  );
+}
+
+function ScanTab({ navigation, ownAccountNumber }) {
+  const { alert } = useAlert();
+  const [permission, requestPermission] = useCameraPermissions();
+  const [scanned, setScanned] = useState(false);
+
+  const handleBarcodeScanned = useCallback(
+    ({ data }) => {
+      if (scanned) return; // ignore rapid repeat frames while we're already handling the first one
+      setScanned(true);
+      haptic.medium();
+
+      let parsed;
+      try {
+        parsed = JSON.parse(data);
+      } catch (e) {
+        parsed = null;
+      }
+
+      if (!parsed || parsed.app !== 'ZannyPay' || !parsed.account) {
+        alert('Not a ZannyPay Code', "This QR code isn't a recognized ZannyPay pay code.", [
+          { text: 'Try Again', onPress: () => setScanned(false) },
+        ]);
+        return;
+      }
+
+      if (parsed.account === ownAccountNumber) {
+        alert('That\u2019s Your Own Code', "You can't pay yourself \u2014 share this code with someone else instead.", [
+          { text: 'OK', onPress: () => setScanned(false) },
+        ]);
+        return;
+      }
+
+      // Hands off to the existing Transfer flow — same account-resolution,
+      // fraud checks, and PIN confirmation every other transfer goes
+      // through, rather than a separate QR-only payment path.
+      navigation.navigate('Transfer', {
+        prefillAccount: parsed.account,
+        ...(parsed.amount ? { prefillAmount: parsed.amount } : {}),
+      });
+    },
+    [scanned, ownAccountNumber, navigation, alert]
+  );
+
+  if (!permission) {
+    return <View style={styles.scanContainer} />;
+  }
+
+  if (!permission.granted) {
+    return (
+      <View style={[styles.scanContainer, styles.permissionState]}>
+        <Ionicons name="camera-outline" size={48} color={colors.textMuted} />
+        <Text style={styles.permissionTitle}>Camera Access Needed</Text>
+        <Text style={styles.permissionBody}>ZannyPay needs your camera to scan a Pay QR code.</Text>
+        <GradientButton title="Enable Camera" onPress={requestPermission} style={{ marginTop: 20, width: '100%' }} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.scanContainer}>
+      <View style={styles.cameraFrame}>
+        <CameraView
+          style={StyleSheet.absoluteFillObject}
+          facing="back"
+          barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+          onBarcodeScanned={handleBarcodeScanned}
+        />
+        <View style={styles.scanCorners} pointerEvents="none">
+          <View style={[styles.corner, styles.cornerTL]} />
+          <View style={[styles.corner, styles.cornerTR]} />
+          <View style={[styles.corner, styles.cornerBL]} />
+          <View style={[styles.corner, styles.cornerBR]} />
+        </View>
+      </View>
+      <Text style={styles.scanHint}>Line up the QR code within the frame</Text>
+    </View>
+  );
+}
+
+export default function QRPayScreen({ navigation }) {
+  const { user } = useWallet();
+  const [activeTab, setActiveTab] = useState('mycode'); // 'mycode' | 'scan'
+  const accountNumber = user?.accountNumber || user?.phone || '0000000000';
+
+  return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={colors.textDark} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Zanny Code</Text>
+        <Text style={styles.headerTitle}>Zanny Code</Text>
         <View style={{ width: 40 }} />
       </View>
 
-      <FadeInView style={styles.scroll}>
-        <View style={styles.codeWrap}>
-          <Animated.View style={[styles.glow, { transform: [{ scale: glowScale }], opacity: glowOpacity }]} />
-          
-          {/* REAL QR CODE COMPONENT */}
-          <View style={styles.codeCard}>
-            <QRCode
-              value={qrPayload}
-              size={180}
-              color={colors.textDark}
-              backgroundColor="white"
-            />
-            <Text style={styles.codeCaption}>Scan to pay instantly</Text>
-          </View>
-          
-        </View>
+      <View style={styles.tabBar}>
+        <TouchableOpacity
+          style={[styles.tabBtn, activeTab === 'mycode' && styles.tabBtnActive]}
+          onPress={() => setActiveTab('mycode')}
+        >
+          <Text style={[styles.tabText, activeTab === 'mycode' && styles.tabTextActive]}>My Code</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabBtn, activeTab === 'scan' && styles.tabBtnActive]}
+          onPress={() => setActiveTab('scan')}
+        >
+          <Text style={[styles.tabText, activeTab === 'scan' && styles.tabTextActive]}>Scan to Pay</Text>
+        </TouchableOpacity>
+      </View>
 
-        <View style={styles.identityBlock}>
-          <Text style={styles.name}>{user?.name || 'ZannyPay Member'}</Text>
-          <Text style={styles.account}>{maskAccount(accountNumber)} · ZannyPay</Text>
-        </View>
-
-        <View style={styles.requestBlock}>
-          <Text style={styles.label}>Request a specific amount (optional)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="₦0.00"
-            keyboardType="numeric"
-            value={requestAmount}
-            onChangeText={setRequestAmount}
-          />
-        </View>
-
-        <GradientButton title="Share My Code" onPress={handleShare} style={{ marginTop: 24 }} />
-      </FadeInView>
+      {activeTab === 'mycode' ? (
+        <MyCodeTab user={user} />
+      ) : (
+        <ScanTab navigation={navigation} ownAccountNumber={accountNumber} />
+      )}
     </SafeAreaView>
   );
 }
@@ -102,6 +210,13 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 10 },
   backBtn: { width: 40, height: 40, justifyContent: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '700', color: colors.textDark },
+
+  tabBar: { flexDirection: 'row', marginHorizontal: 20, backgroundColor: '#fff', borderRadius: 14, padding: 4, marginBottom: 10, borderWidth: 1, borderColor: colors.border },
+  tabBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
+  tabBtnActive: { backgroundColor: colors.primary },
+  tabText: { fontSize: 13, fontWeight: '700', color: colors.textMuted },
+  tabTextActive: { color: '#fff' },
+
   scroll: { padding: 24, alignItems: 'center' },
   codeWrap: { alignItems: 'center', justifyContent: 'center', marginTop: 10, marginBottom: 24 },
   glow: { position: 'absolute', width: 240, height: 240, borderRadius: 28, backgroundColor: colors.primary },
@@ -113,4 +228,17 @@ const styles = StyleSheet.create({
   requestBlock: { width: '100%', marginTop: 10 },
   label: { fontSize: 13, fontWeight: '600', color: colors.textDark, marginBottom: 8 },
   input: { backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, borderWidth: 1, borderColor: colors.border, color: colors.textDark, width: '100%' },
+
+  scanContainer: { flex: 1, padding: 24, alignItems: 'center', justifyContent: 'center' },
+  cameraFrame: { width: '100%', aspectRatio: 1, borderRadius: 24, overflow: 'hidden', backgroundColor: '#000' },
+  scanCorners: { ...StyleSheet.absoluteFillObject },
+  corner: { position: 'absolute', width: 32, height: 32, borderColor: colors.accent, borderWidth: 4 },
+  cornerTL: { top: 24, left: 24, borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 8 },
+  cornerTR: { top: 24, right: 24, borderLeftWidth: 0, borderBottomWidth: 0, borderTopRightRadius: 8 },
+  cornerBL: { bottom: 24, left: 24, borderRightWidth: 0, borderTopWidth: 0, borderBottomLeftRadius: 8 },
+  cornerBR: { bottom: 24, right: 24, borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 8 },
+  scanHint: { marginTop: 20, fontSize: 13, color: colors.textMuted, fontWeight: '500' },
+  permissionState: { backgroundColor: '#fff', borderRadius: 20, padding: 30 },
+  permissionTitle: { fontSize: 16, fontWeight: '700', color: colors.textDark, marginTop: 14 },
+  permissionBody: { fontSize: 13, color: colors.textMuted, textAlign: 'center', marginTop: 6, lineHeight: 19 },
 });

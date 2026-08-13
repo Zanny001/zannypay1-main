@@ -20,7 +20,6 @@ import { colors } from '../theme/colors';
 import { useTheme } from '../context/ThemeContext';
 import { useWallet } from '../context/WalletContext';
 import { formatCurrency, formatDate } from '../utils/format';
-import { loadJSON } from '../utils/storage';
 import { useAlert } from '../context/AlertContext';
 
 const BANK_LIST = [
@@ -33,13 +32,12 @@ const BANK_LIST = [
   'Jaiz Bank', 'Globus Bank', 'LOTUS BANK', 'NPF MICROFINANCE BANK',
 ];
 
-const BENEFICIARIES_STORAGE_KEY = 'zannypay:beneficiaries';
 const QUICK_AMOUNTS = [500, 1000, 2000, 5000, 10000];
 
 export default function TransferScreen({ navigation, route }) {
   const { alert } = useAlert();
   const { theme } = useTheme();
-  const { balance, transferMoney, transactions, resolveRecipient } = useWallet();
+  const { balance, transferMoney, transactions, resolveRecipient, beneficiaries, fetchBeneficiaries } = useWallet();
 
   // 'bank' = external transfer, 'zanny' = internal ZannyPay-to-ZannyPay transfer
   const [tab, setTab] = useState('bank');
@@ -65,18 +63,21 @@ export default function TransferScreen({ navigation, route }) {
   // Animated fade for whichever list (recent/saved) is showing
   const listFade = useRef(new Animated.Value(1)).current;
 
-  // Real saved recipients (from BeneficiariesScreen's storage) and real
-  // recent transfers (derived from actual transaction history) — replaces
-  // the old hardcoded mock arrays entirely.
-  const [beneficiaries, setBeneficiaries] = useState([]);
+  // Real saved recipients (from the backend-persisted Beneficiary model —
+  // see WalletContext) and real recent transfers (derived from actual
+  // transaction history). This used to read its own separate local copy
+  // straight out of AsyncStorage, which drifted out of sync the moment
+  // BeneficiariesScreen moved onto the backend API — now it shares the
+  // exact same `beneficiaries` the rest of the app uses, so adding or
+  // removing a recipient anywhere is reflected here immediately too.
   const [resolvedRecipient, setResolvedRecipient] = useState(null);
   const [resolving, setResolving] = useState(false);
   const resolveDebounceRef = useRef(null);
 
   useFocusEffect(
     useCallback(() => {
-      loadJSON(BENEFICIARIES_STORAGE_KEY, []).then((saved) => setBeneficiaries(saved || []));
-    }, [])
+      fetchBeneficiaries();
+    }, [fetchBeneficiaries])
   );
 
   const recentTransfers = useMemo(() => {
@@ -151,6 +152,13 @@ export default function TransferScreen({ navigation, route }) {
         setTab('zanny');
       }
     }
+    // Used by the QR "Scan to Pay" flow — a requested-amount code (see
+    // QRPayScreen's "My Code" tab) prefills the amount too, not just who
+    // to pay, so scanning a code with a set price is genuinely one-tap
+    // faster than a manual transfer.
+    if (params?.prefillAmount) {
+      setAmount(String(params.prefillAmount));
+    }
   }, [route?.params]);
 
   const filteredBanks = BANK_LIST.filter((b) =>
@@ -181,7 +189,7 @@ export default function TransferScreen({ navigation, route }) {
 
   const handlePickSaved = (item) => {
     setTab(item.bank && item.bank !== 'ZannyPay' ? 'bank' : 'zanny');
-    setAccount(item.account);
+    setAccount(item.accountNumber);
     setBank(item.bank && item.bank !== 'ZannyPay' ? item.bank : '');
     focusAmountField();
   };
@@ -249,7 +257,7 @@ export default function TransferScreen({ navigation, route }) {
       </View>
       <View style={styles.contactInfo}>
         <Text style={[styles.contactName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
-        <Text style={[styles.contactDetails, { color: theme.textMuted }]}>{item.account}{item.bank ? `  •  ${item.bank}` : ''}</Text>
+        <Text style={[styles.contactDetails, { color: theme.textMuted }]}>{item.accountNumber}{item.bank ? `  •  ${item.bank}` : ''}</Text>
       </View>
       <Ionicons name="flash-outline" size={18} color={theme.primary} />
     </TouchableOpacity>
