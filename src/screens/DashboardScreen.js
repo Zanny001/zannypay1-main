@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 import { useTheme } from '../context/ThemeContext';
-import { formatCurrency, maskAccount } from '../utils/format';
+import { formatCurrency, maskAccount, formatDate } from '../utils/format';
 import { useWallet } from '../context/WalletContext';
 import { getUnreadCount } from '../utils/notifications';
 import TransactionRow from '../components/TransactionRow';
@@ -38,17 +38,35 @@ const MORE_ACTIONS = [
 
 export default function DashboardScreen({ navigation }) {
   const { theme } = useTheme();
-  const { user, balance, transactions, syncWallet, isBalanceHidden, toggleBalanceHidden, loading } = useWallet();
+  const { user, balance, transactions, syncWallet, isBalanceHidden, toggleBalanceHidden, loading, fetchRecurringTransfers } = useWallet();
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [fundModalVisible, setFundModalVisible] = useState(false);
   const [moreModalVisible, setMoreModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [upcomingTransfers, setUpcomingTransfers] = useState([]);
 
   useFocusEffect(
     useCallback(() => {
       getUnreadCount(transactions).then(setUnreadCount);
     }, [transactions])
+  );
+
+  // Master audit / continuation request: nowhere on the dashboard
+  // surfaced "you have a recurring transfer coming up" — a user had to
+  // remember to check the dedicated Recurring Transfers screen on their
+  // own. Shows at most the next 3 active ones, soonest first.
+  useFocusEffect(
+    useCallback(() => {
+      fetchRecurringTransfers().then((res) => {
+        if (!res.ok) return;
+        const upcoming = (res.data || [])
+          .filter((rt) => rt.status === 'active' && rt.nextRunAt)
+          .sort((a, b) => new Date(a.nextRunAt) - new Date(b.nextRunAt))
+          .slice(0, 3);
+        setUpcomingTransfers(upcoming);
+      });
+    }, [fetchRecurringTransfers])
   );
 
   const handleQuickAction = (key) => {
@@ -190,6 +208,36 @@ export default function DashboardScreen({ navigation }) {
           </View>
         )}
 
+        {/* UPCOMING RECURRING TRANSFERS */}
+        {upcomingTransfers.length > 0 && !isFocusMode && (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>Upcoming Transfers</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('RecurringTransfers')}>
+                <Text style={[styles.seeAll, { color: theme.primary }]}>See all</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={{ marginHorizontal: 20, marginBottom: 20 }}>
+              {upcomingTransfers.map((rt) => (
+                <TouchableOpacity
+                  key={rt.id}
+                  style={[styles.upcomingRow, { backgroundColor: theme.surface }]}
+                  onPress={() => navigation.navigate('RecurringTransfers')}
+                >
+                  <View style={[styles.upcomingIconWrap, { backgroundColor: theme.background }]}>
+                    <Ionicons name="repeat" size={18} color={theme.primary} />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.upcomingName, { color: theme.text }]}>{rt.recipientName}</Text>
+                    <Text style={[styles.upcomingDate, { color: theme.textMuted }]}>Next: {formatDate(rt.nextRunAt)}</Text>
+                  </View>
+                  <Text style={[styles.upcomingAmount, { color: theme.text }]}>{formatCurrency(rt.amount)}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
+
         {/* RECENT ACTIVITY */}
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Recent Activity</Text>
@@ -281,6 +329,11 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 12 },
   sectionTitle: { fontSize: 16, fontWeight: '700' },
   seeAll: { fontSize: 13, fontWeight: '600' },
+  upcomingRow: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 16, marginBottom: 10 },
+  upcomingIconWrap: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  upcomingName: { fontSize: 14, fontWeight: '600' },
+  upcomingDate: { fontSize: 11, marginTop: 2 },
+  upcomingAmount: { fontSize: 14, fontWeight: '700' },
   emptyStateContainer: { alignItems: 'center', paddingVertical: 32, paddingHorizontal: 24 },
   emptyIconWrap: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
   emptyTitle: { fontSize: 16, fontWeight: '700', marginBottom: 8 },

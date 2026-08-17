@@ -2,7 +2,7 @@ import { Platform, Alert, Linking } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { SyncEngine } from './SyncEngine';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://zannypay-backend.onrender.com/api/v1';
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://zannypay-backend-no6a.onrender.com/api/v1';
 
 // ==========================================
 // TOKEN MANAGEMENT

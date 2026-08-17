@@ -6,6 +6,7 @@ import { useWallet } from '../context/WalletContext';
 import { formatCurrency } from '../utils/format';
 import Card from '../components/Card';
 import MonthlyTrendChart from '../components/MonthlyTrendChart';
+import SpendingHeatmap from '../components/SpendingHeatmap';
 
 const TREND_MONTHS = 6;
 
@@ -97,6 +98,11 @@ export default function AnalyticsScreen({ navigation }) {
           </>
         )}
 
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Daily Spending</Text>
+        <Card style={styles.heatmapCard}>
+          <SpendingHeatmap transactions={transactions} />
+        </Card>
+
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Breakdown by Category</Text>
 
         {spendData.map((item, idx) => {
@@ -132,6 +138,7 @@ const styles = StyleSheet.create({
   summarySub: { fontSize: 13, fontWeight: '600' },
   sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 16 },
   trendCard: { padding: 16, marginBottom: 24, alignItems: 'center' },
+  heatmapCard: { padding: 16, marginBottom: 24 },
   categoryCard: { padding: 16, marginBottom: 12 },
   categoryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   categoryName: { fontSize: 15, fontWeight: '600' },
