@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, RefreshControl, Modal, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, RefreshControl, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,13 +17,24 @@ import Skeleton from '../components/Skeleton';
 import AnimatedNumber from '../components/AnimatedNumber';
 import PressableScale from '../components/PressableScale';
 
-// Primary 8-Item Grid
-const QUICK_ACTIONS = [
+// Tier 1 — big, labeled cards for the highest-frequency money-movement
+// actions. Continuation request: competitor home screens (OPay, PalmPay)
+// consistently split shortcuts into a small set of big primary cards
+// versus a larger grid of secondary services, rather than one
+// undifferentiated row — this is that split for ZannyPay specifically:
+// Transfer/Fund/Savings/Cards are the four things a returning user is
+// most likely doing *today*.
+const TIER1_ACTIONS = [
   { key: 'Transfer', icon: 'swap-horizontal', label: 'Transfer' },
+  { key: 'Fund', icon: 'add-circle', label: 'Fund Wallet' },
+  { key: 'Savings', icon: 'wallet', label: 'Savings' },
+  { key: 'Cards', icon: 'card', label: 'Cards' },
+];
+
+// Tier 2 — secondary/bill-pay services, same small-icon treatment as before.
+const TIER2_ACTIONS = [
   { key: 'Airtime', icon: 'phone-portrait-outline', label: 'Airtime' },
   { key: 'Bills', icon: 'receipt-outline', label: 'Bills' },
-  { key: 'Cards', icon: 'card-outline', label: 'Cards' },
-  { key: 'Fund', icon: 'add-circle-outline', label: 'Fund Wallet' },
   { key: 'Invoice', icon: 'document-text-outline', label: 'Invoices' },
   { key: 'Beneficiaries', icon: 'people-outline', label: 'Recipients' },
   { key: 'More', icon: 'grid-outline', label: 'More' },
@@ -38,7 +49,10 @@ const MORE_ACTIONS = [
 
 export default function DashboardScreen({ navigation }) {
   const { theme } = useTheme();
-  const { user, balance, transactions, syncWallet, isBalanceHidden, toggleBalanceHidden, loading, fetchRecurringTransfers } = useWallet();
+  const {
+    user, balance, transactions, syncWallet, isBalanceHidden, toggleBalanceHidden, loading,
+    fetchRecurringTransfers, lastInterestEarned, savingsApy, referrals, creditLimit, fetchReferrals,
+  } = useWallet();
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [fundModalVisible, setFundModalVisible] = useState(false);
   const [moreModalVisible, setMoreModalVisible] = useState(false);
@@ -69,6 +83,17 @@ export default function DashboardScreen({ navigation }) {
     }, [fetchRecurringTransfers])
   );
 
+  // The referral promo card below needs real referral data to show an
+  // accurate count — previously fetchReferrals() was only ever called
+  // from ReferralScreen itself, so referrals.referralCode would stay
+  // null (its initial state) for anyone who hadn't already visited that
+  // screen, meaning the promo card would almost never actually appear.
+  useFocusEffect(
+    useCallback(() => {
+      fetchReferrals();
+    }, [fetchReferrals])
+  );
+
   const handleQuickAction = (key) => {
     if (key === 'Fund') return setFundModalVisible(true);
     if (key === 'More') return setMoreModalVisible(true);
@@ -85,6 +110,52 @@ export default function DashboardScreen({ navigation }) {
     await syncWallet();
     setRefreshing(false);
   };
+
+  // The most recent transaction gets elevated into its own receipt-style
+  // card (see below) rather than only appearing at the top of the list
+  // further down — matching how both OPay and PalmPay treat "what just
+  // happened" as more important than "recent history" generically.
+  // Recent Activity below then starts from the second-most-recent so the
+  // same transaction isn't shown twice in a row.
+  const showReceiptCard = !isFocusMode && transactions?.length > 0;
+  const latestTransaction = showReceiptCard ? transactions[0] : null;
+  const recentActivityList = showReceiptCard ? transactions.slice(1, 6) : transactions?.slice(0, isFocusMode ? 10 : 5) || [];
+
+  // Promo carousel — every card here is built from data the app already
+  // has for this specific user, never a placeholder number. A card only
+  // appears if the thing it's promoting is genuinely available to them.
+  const promoCards = [];
+  promoCards.push({
+    key: 'savings',
+    icon: 'trending-up',
+    title: `Earn ${Math.round((savingsApy || 0) * 100)}% p.a. on savings`,
+    subtitle: 'Start with any amount — grow it daily',
+    cta: 'Save now',
+    onPress: () => navigation.navigate('Savings'),
+  });
+  if (referrals?.referralCode) {
+    promoCards.push({
+      key: 'referral',
+      icon: 'gift',
+      title: 'Refer & Earn',
+      subtitle:
+        referrals.totalReferred > 0
+          ? `You've referred ${referrals.totalReferred} friend${referrals.totalReferred === 1 ? '' : 's'} so far`
+          : 'Invite friends to ZannyPay',
+      cta: 'Invite',
+      onPress: () => navigation.navigate('Referral'),
+    });
+  }
+  if (creditLimit > 0) {
+    promoCards.push({
+      key: 'loan',
+      icon: 'cash',
+      title: `Eligible for up to ${formatCurrency(creditLimit)}`,
+      subtitle: 'Flexi Credit — repay on your terms',
+      cta: 'View loan',
+      onPress: () => navigation.navigate('Loans'),
+    });
+  }
 
   // Only on the very first load — WalletContext's `loading` flag is true
   // until the initial fetch resolves, then stays false on refresh/pull-to-
@@ -194,18 +265,101 @@ export default function DashboardScreen({ navigation }) {
           </View>
         </LinearGradient>
 
-        {/* QUICK ACTIONS GRID */}
+        {/* EARNINGS STRIP — a persistent, honest signal that saved money
+            is actually growing. Shows the real most-recent interest
+            credit if one exists; otherwise a real invitation to start,
+            never a placeholder number. */}
         {!isFocusMode && (
-          <View style={styles.gridContainer}>
-            {QUICK_ACTIONS.map((action) => (
-              <PressableScale key={action.key} style={styles.gridItem} onPress={() => handleQuickAction(action.key)}>
-                <View style={[styles.gridIconWrap, { backgroundColor: theme.surface }]}>
-                  <Ionicons name={action.icon} size={24} color={theme.primary} />
+          <TouchableOpacity
+            style={[styles.earningsStrip, { backgroundColor: theme.surface }]}
+            onPress={() => navigation.navigate('Savings')}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.earningsIconWrap, { backgroundColor: `${theme.success}1A` }]}>
+              <Ionicons name="trending-up" size={16} color={theme.success} />
+            </View>
+            {lastInterestEarned ? (
+              <Text style={[styles.earningsText, { color: theme.text }]} numberOfLines={1}>
+                Savings interest <Text style={{ color: theme.success, fontWeight: '800' }}>+{formatCurrency(lastInterestEarned.amount)}</Text> · {formatDate(lastInterestEarned.earnedAt)}
+              </Text>
+            ) : (
+              <Text style={[styles.earningsText, { color: theme.textMuted }]} numberOfLines={1}>
+                Start saving to earn {Math.round((savingsApy || 0) * 100)}% p.a.
+              </Text>
+            )}
+            <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+          </TouchableOpacity>
+        )}
+
+        {/* TIER 1 SHORTCUTS — big cards, primary money-movement actions */}
+        {!isFocusMode && (
+          <View style={styles.tier1Row}>
+            {TIER1_ACTIONS.map((action) => (
+              <PressableScale key={action.key} style={styles.tier1Card} onPress={() => handleQuickAction(action.key)}>
+                <View style={[styles.tier1CardInner, { backgroundColor: theme.surface }]}>
+                  <View style={[styles.tier1IconWrap, { backgroundColor: `${theme.primary}1A` }]}>
+                    <Ionicons name={action.icon} size={20} color={theme.primary} />
+                  </View>
+                  <Text style={[styles.tier1Label, { color: theme.text }]} numberOfLines={1}>{action.label}</Text>
                 </View>
-                <Text style={[styles.gridLabel, { color: theme.text }]}>{action.label}</Text>
               </PressableScale>
             ))}
           </View>
+        )}
+
+        {/* TIER 2 — secondary services, smaller grid */}
+        <View style={styles.gridContainer}>
+          {(isFocusMode ? [...TIER1_ACTIONS, ...TIER2_ACTIONS] : TIER2_ACTIONS).map((action) => (
+            <PressableScale key={action.key} style={styles.gridItem} onPress={() => handleQuickAction(action.key)}>
+              <View style={[styles.gridIconWrap, { backgroundColor: theme.surface }]}>
+                <Ionicons name={action.icon} size={24} color={theme.primary} />
+              </View>
+              <Text style={[styles.gridLabel, { color: theme.text }]}>{action.label}</Text>
+            </PressableScale>
+          ))}
+        </View>
+
+        {/* LATEST TRANSACTION — elevated into its own receipt card rather
+            than only appearing at the top of the list below. */}
+        {showReceiptCard && (
+          <TouchableOpacity
+            style={[styles.receiptCard, { backgroundColor: theme.surface }]}
+            onPress={() => navigation.navigate('History')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.receiptTopRow}>
+              <Text style={[styles.receiptStatus, { color: latestTransaction.status === 'failed' ? theme.danger : theme.success }]}>
+                {latestTransaction.status === 'completed' ? 'Successful' : latestTransaction.status === 'failed' ? 'Failed' : 'Pending'}
+              </Text>
+              <Text style={[styles.receiptDate, { color: theme.textMuted }]}>{formatDate(latestTransaction.createdAt)}</Text>
+            </View>
+            <Text style={[styles.receiptTitle, { color: theme.text }]} numberOfLines={1}>{latestTransaction.title}</Text>
+            <Text style={[styles.receiptAmount, { color: latestTransaction.type === 'credit' ? theme.success : theme.text }]}>
+              {latestTransaction.type === 'credit' ? '+' : '-'}{formatCurrency(latestTransaction.amount)}
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* PROMO CAROUSEL — every card built from this user's real data;
+            see promoCards above for exactly what backs each one. */}
+        {!isFocusMode && promoCards.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ marginBottom: 20 }}
+            contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}
+          >
+            {promoCards.map((promo) => (
+              <TouchableOpacity key={promo.key} style={[styles.promoCard, { backgroundColor: theme.surfaceAlt || theme.surface }]} onPress={promo.onPress} activeOpacity={0.85}>
+                <View style={[styles.promoIconWrap, { backgroundColor: `${theme.primary}22` }]}>
+                  <Ionicons name={promo.icon} size={18} color={theme.primary} />
+                </View>
+                <Text style={[styles.promoTitle, { color: theme.text }]} numberOfLines={2}>{promo.title}</Text>
+                <Text style={[styles.promoSubtitle, { color: theme.textMuted }]} numberOfLines={2}>{promo.subtitle}</Text>
+                <Text style={[styles.promoCta, { color: theme.primary }]}>{promo.cta} →</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         )}
 
         {/* UPCOMING RECURRING TRANSFERS */}
@@ -248,8 +402,8 @@ export default function DashboardScreen({ navigation }) {
           )}
         </View>
 
-        <View style={{ marginHorizontal: 20, backgroundColor: theme.surface, borderRadius: 16, overflow: 'hidden', paddingBottom: transactions?.length === 0 ? 0 : 10 }}>
-          {transactions?.length === 0 ? (
+        <View style={{ marginHorizontal: 20, backgroundColor: theme.surface, borderRadius: 16, overflow: 'hidden', paddingBottom: recentActivityList.length === 0 ? 0 : 10 }}>
+          {recentActivityList.length === 0 ? (
             <View style={styles.emptyStateContainer}>
               <View style={[styles.emptyIconWrap, { backgroundColor: theme.background }]}>
                 <Ionicons name="wallet-outline" size={32} color={theme.textMuted} />
@@ -258,7 +412,7 @@ export default function DashboardScreen({ navigation }) {
               <Text style={[styles.emptySub, { color: theme.textMuted }]}>Your financial journey starts here.</Text>
             </View>
           ) : (
-            transactions?.slice(0, isFocusMode ? 10 : 5).map((txn) => (
+            recentActivityList.map((txn) => (
               <TransactionRow key={txn.id} txn={txn} />
             ))
           )}
@@ -311,7 +465,7 @@ const styles = StyleSheet.create({
   bellBadgeText: { color: '#fff', fontSize: 9, fontWeight: '800' },
   frozenBanner: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginBottom: 16, padding: 14, borderRadius: 14 },
   frozenBannerText: { fontSize: 12, fontWeight: '700', marginLeft: 10, flex: 1 },
-  balanceCard: { marginHorizontal: 20, borderRadius: 24, padding: 24, marginBottom: 25 },
+  balanceCard: { marginHorizontal: 20, borderRadius: 24, padding: 24, marginBottom: 14 },
   balanceTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   balanceLabel: { color: '#A09CAB', fontSize: 13, fontWeight: '600' },
   eyeIconWrap: { padding: 4 },
@@ -321,10 +475,34 @@ const styles = StyleSheet.create({
   fundBtnText: { color: '#fff', fontWeight: '700', fontSize: 14, marginLeft: 6 },
   transferBtn: { flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 12 },
   transferBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  gridContainer: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 10, marginBottom: 20 },
+
+  earningsStrip: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginBottom: 20, padding: 12, borderRadius: 14, gap: 10 },
+  earningsIconWrap: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  earningsText: { flex: 1, fontSize: 12.5, fontWeight: '600' },
+
+  tier1Row: { flexDirection: 'row', paddingHorizontal: 20, marginBottom: 20, gap: 10 },
+  tier1Card: { flex: 1 },
+  tier1CardInner: { alignItems: 'center', paddingVertical: 14, borderRadius: 16 },
+  tier1IconWrap: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  tier1Label: { fontSize: 11, fontWeight: '700' },
+
+  gridContainer: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 10, marginBottom: 8 },
   gridItem: { width: '25%', alignItems: 'center', marginBottom: 20 },
   gridIconWrap: { width: 50, height: 50, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   gridLabel: { fontSize: 11, fontWeight: '500', textAlign: 'center' },
+
+  receiptCard: { marginHorizontal: 20, marginBottom: 20, padding: 16, borderRadius: 16 },
+  receiptTopRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  receiptStatus: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
+  receiptDate: { fontSize: 11 },
+  receiptTitle: { fontSize: 15, fontWeight: '600', marginBottom: 4 },
+  receiptAmount: { fontSize: 20, fontWeight: '800' },
+
+  promoCard: { width: 220, borderRadius: 16, padding: 16 },
+  promoIconWrap: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  promoTitle: { fontSize: 14, fontWeight: '700', marginBottom: 4 },
+  promoSubtitle: { fontSize: 11.5, marginBottom: 10, lineHeight: 16 },
+  promoCta: { fontSize: 12.5, fontWeight: '800' },
 
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 12 },
   sectionTitle: { fontSize: 16, fontWeight: '700' },

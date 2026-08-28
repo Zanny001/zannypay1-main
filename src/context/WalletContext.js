@@ -49,6 +49,7 @@ export function WalletProvider({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [savingsGoals, setSavingsGoals] = useState([]);
   const [savingsApy, setSavingsApy] = useState(SAVINGS_APY);
+  const [lastInterestEarned, setLastInterestEarned] = useState(null);
   const [loan, setLoan] = useState(null);
   const [isBalanceHidden, setIsBalanceHidden] = useState(false);
   const [serverCreditLimit, setServerCreditLimit] = useState(null);
@@ -117,6 +118,13 @@ export function WalletProvider({ children }) {
         const rawApy = data.savingsApy !== undefined ? data.savingsApy : data.user.savingsApy;
         if (rawApy !== undefined) {
           setSavingsApy(toNumber(rawApy));
+        }
+
+        // Powers the Home screen's earnings strip — null until the
+        // backend's daily accrual job has actually credited interest at
+        // least once (see SavingsService.getLastInterestEarned).
+        if (data.lastInterestEarned !== undefined) {
+          setLastInterestEarned(data.lastInterestEarned);
         }
 
         return { ...data, transactions: merged, balance: processedBalance };
@@ -869,7 +877,7 @@ export function WalletProvider({ children }) {
     loading, onboarded, completeOnboarding, user, isAuthenticated, token,
     signup, login, logout, loginWithBiometricToken, balance, transactions,
     transferMoney, payBill, buyAirtime, fundWallet, verifyFunding, syncWallet, recordInvoice,
-    savingsGoals, createSavingsGoal, depositToSavings, withdrawFromSavings, savingsApy,
+    savingsGoals, createSavingsGoal, depositToSavings, withdrawFromSavings, savingsApy, lastInterestEarned,
     loan, creditLimit, requestLoan, repayLoan,
     isBalanceHidden, toggleBalanceHidden,
     requestVirtualCard, toggleCardFreeze, linkExternalCard, setDefaultCard, updateCardLimits, removeCard, fetchCardActivity, cards, invoices,
