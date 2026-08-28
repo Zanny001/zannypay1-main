@@ -151,7 +151,7 @@ export default function CardScreen({ navigation }) {
     return () => {
       cancelled = true;
     };
-  }, [activeCard?.id, fetchCardActivity]);
+  }, [activeCard, fetchCardActivity]);
 
   const handleScroll = Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], {
     useNativeDriver: false,
