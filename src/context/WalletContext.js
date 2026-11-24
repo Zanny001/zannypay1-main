@@ -508,6 +508,9 @@ export function WalletProvider({ children }) {
         };
       }
       if (res?.success && res.authorizationUrl) {
+        attempt = { ...attempt, reference: res.reference, authorizationUrl: res.authorizationUrl };
+        fundingAttemptRef.current = attempt;
+        await saveJSON(STORAGE_KEYS.FUNDING_ATTEMPT, attempt);
         return { ok: true, authorizationUrl: res.authorizationUrl, reference: res.reference, amount: normalizedAmount };
       }
       if (res?.status === 'failed') await clearFundingAttempt(res.reference);
@@ -529,7 +532,7 @@ export function WalletProvider({ children }) {
       return null;
     }
     fundingAttemptRef.current = attempt;
-    return { amount: Number(attempt.amount), reference: attempt.reference || null };
+    return { amount: Number(attempt.amount), reference: attempt.reference || null, authorizationUrl: attempt.authorizationUrl || null };
   }, [user?.id]);
 
   const verifyFunding = useCallback(async (reference) => {
