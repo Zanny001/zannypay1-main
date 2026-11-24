@@ -386,7 +386,7 @@ export function WalletProvider({ children }) {
         amount: Number(payload.amount),
         idempotencyKey,
       });
-      if (res && res.id) {
+      if (res && res.transactionId && res.status) {
         if (res.status === 'completed') await syncWallet();
         return { ok: true, data: res, idempotencyKey };
       }
