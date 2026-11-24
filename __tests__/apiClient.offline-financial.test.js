@@ -32,7 +32,7 @@ describe('offline financial mutation safety', () => {
     global.fetch = originalFetch;
   });
 
-  it.each(['/wallet/transfer', '/wallet/billpay', '/wallet/airtime'])(
+  it.each(['/wallet/transfer', '/wallet/billpay', '/wallet/airtime', '/wallet/bill-purchase'])(
     'does not persist credentials or replay a failed financial mutation (%s)',
     async (endpoint) => {
       await expect(
@@ -41,4 +41,20 @@ describe('offline financial mutation safety', () => {
       expect(SyncEngine.enqueue).not.toHaveBeenCalled();
     },
   );
+});
+
+
+describe('sensitive biller verification offline safety', () => {
+  const originalFetch = global.fetch;
+  beforeEach(() => {
+    jest.clearAllMocks();
+    global.fetch = jest.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+  });
+  afterAll(() => { global.fetch = originalFetch; });
+
+  it('does not persist a biller account identifier for offline verification', async () => {
+    await expect(apiPost('/wallet/bill-verify', { serviceID: 'ikeja-electric', billersCode: '1234567890' }))
+      .rejects.toThrow('account verification request was not saved or replayed');
+    expect(SyncEngine.enqueue).not.toHaveBeenCalled();
+  });
 });
