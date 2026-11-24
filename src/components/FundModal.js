@@ -149,7 +149,7 @@ export default function FundModal({ visible, onClose }) {
                   placeholderTextColor={colors.textMuted}
                   keyboardType="decimal-pad"
                   value={amount}
-                  onChangeText={(value) => setAmount(value.replace(/[^0-9.]/g, '').replace(/(\\..*)\\./g, '$1'))}
+                  onChangeText={(value) => setAmount(value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1'))}
                   maxLength={12}
                   autoFocus={visible}
                 />
