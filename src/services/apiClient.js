@@ -123,6 +123,10 @@ const triggerUssdFallback = (fallbackConfig, onDialed) => {
 // IDEMPOTENCY
 // ==========================================
 const IDEMPOTENT_ENDPOINTS = ['/wallet/transfer', '/wallet/billpay', '/wallet/airtime'];
+// Financial mutations can contain transaction PINs and must never be persisted
+// in the plaintext AsyncStorage retry queue. The caller must retry online after
+// reconnecting; idempotency keys still protect an explicitly retried request.
+const NEVER_QUEUE_FINANCIAL_ENDPOINTS = new Set(IDEMPOTENT_ENDPOINTS);
 
 function generateIdempotencyKey() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
@@ -195,11 +199,23 @@ const apiWrite = async (method, endpoint, payload, fallbackConfig, isRetry) => {
       error.message.includes('Failed to fetch')
     ) {
       let queuedId = null;
-      if (!isRetry) queuedId = await SyncEngine.enqueue(`${method}_RETRY`, { method, endpoint, payload });
+      const canPersistForRetry =
+        !isRetry && !NEVER_QUEUE_FINANCIAL_ENDPOINTS.has(endpoint);
+      if (canPersistForRetry) {
+        queuedId = await SyncEngine.enqueue(`${method}_RETRY`, {
+          method,
+          endpoint,
+          payload,
+        });
+      }
       if (fallbackConfig) {
         triggerUssdFallback(fallbackConfig, queuedId ? () => SyncEngine.cancel(queuedId) : null);
       }
-      throw new Error('Network offline. Attempting USSD fallback.');
+      throw new Error(
+        NEVER_QUEUE_FINANCIAL_ENDPOINTS.has(endpoint)
+          ? 'Network offline. This financial transaction was not saved or replayed; reconnect and retry it.'
+          : 'Network offline. Attempting USSD fallback.',
+      );
     }
     throw error;
   }
