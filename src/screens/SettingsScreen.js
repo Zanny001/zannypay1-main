@@ -178,7 +178,7 @@ export default function SettingsScreen({ navigation }) {
           </View>
         </View>
 
-        <Text style={[styles.footerText, { color: theme.textMuted }]}>ZannyPay v2.1.0</Text>
+        <Text style={[styles.footerText, { color: theme.textMuted }]}>ZannyPay v1.1.0</Text>
         <Text style={[styles.footerCopyright, { color: theme.textMuted }]}>© {new Date().getFullYear()} ZannyPay. All rights reserved.</Text>
       </ScrollView>
 
