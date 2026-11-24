@@ -151,6 +151,9 @@ export const apiDelete = async (endpoint, fallbackConfig = null, isRetry = false
   apiWrite('DELETE', endpoint, null, fallbackConfig, isRetry);
 
 const apiWrite = async (method, endpoint, payload, fallbackConfig, isRetry) => {
+  // Retain the public call signature for existing screens while ignoring
+  // legacy USSD fallback hints; no carrier rail is verified for this app.
+  void fallbackConfig;
   if (!isRetry && payload && IDEMPOTENT_ENDPOINTS.includes(endpoint) && !payload.idempotencyKey) {
     payload = { ...payload, idempotencyKey: generateIdempotencyKey() };
   }
@@ -174,11 +177,10 @@ const apiWrite = async (method, endpoint, payload, fallbackConfig, isRetry) => {
       error.message.includes('Network request failed') ||
       error.message.includes('Failed to fetch')
     ) {
-      let queuedId = null;
       const canPersistForRetry =
         !isRetry && !NEVER_QUEUE_FINANCIAL_ENDPOINTS.has(endpoint);
       if (canPersistForRetry) {
-        queuedId = await SyncEngine.enqueue(`${method}_RETRY`, {
+        await SyncEngine.enqueue(`${method}_RETRY`, {
           method,
           endpoint,
           payload,
