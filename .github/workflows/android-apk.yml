@@ -48,13 +48,15 @@ jobs:
             echo "::error::EAS completed without returning an APK URL."
             exit 1
           fi
-          curl --fail --location "$BUILD_URL" --output ZannyPay-1.1.0.apk
+          APK_NAME="ZannyPay-$(node -p "require('./app.json').expo.version").apk"
+          echo "APK_NAME=$APK_NAME" >> "$GITHUB_ENV"
+          curl --fail --location "$BUILD_URL" --output "$APK_NAME"
 
       - name: Attach APK to this GitHub Actions run
         uses: actions/upload-artifact@v4
         with:
           name: ZannyPay-Android-APK
-          path: ZannyPay-1.1.0.apk
+          path: ${{ env.APK_NAME }}
           if-no-files-found: error
           retention-days: 30
 
