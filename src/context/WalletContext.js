@@ -344,6 +344,68 @@ export function WalletProvider({ children }) {
     }
   }, [syncWallet]);
 
+  // VTpass bill services are called directly through authenticated backend
+  // endpoints. Sensitive biller identifiers and transaction PINs are never
+  // written to the offline retry queue.
+  const fetchVtpassServices = useCallback(async (identifier) => {
+    try {
+      const res = await apiGet(`/wallet/bill-services?identifier=${encodeURIComponent(identifier)}`);
+      return { ok: true, data: res };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }, []);
+
+  const fetchVtpassVariations = useCallback(async (serviceId) => {
+    try {
+      const res = await apiGet(`/wallet/bill-services/${encodeURIComponent(serviceId)}/variations`);
+      return { ok: true, data: res };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }, []);
+
+  const verifyVtpassCustomer = useCallback(async ({ serviceID, billersCode, type }) => {
+    try {
+      const res = await apiPost('/wallet/bill-verify', {
+        serviceID,
+        billersCode: String(billersCode || '').trim(),
+        ...(type ? { type } : {}),
+      });
+      return { ok: true, data: res };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }, []);
+
+  const purchaseVtpassBill = useCallback(async (payload) => {
+    const idempotencyKey = payload.idempotencyKey || generateIdempotencyKey();
+    try {
+      const res = await apiPost('/wallet/bill-purchase', {
+        ...payload,
+        amount: Number(payload.amount),
+        idempotencyKey,
+      });
+      if (res && res.transactionId && res.status) {
+        if (res.status === 'completed') await syncWallet();
+        return { ok: true, data: res, idempotencyKey };
+      }
+      return { ok: false, error: res?.message || 'The bill purchase could not be confirmed.', idempotencyKey };
+    } catch (err) {
+      return { ok: false, error: err.message, idempotencyKey };
+    }
+  }, [syncWallet]);
+
+  const fetchVtpassBillTransaction = useCallback(async (transactionId) => {
+    try {
+      const res = await apiGet(`/wallet/bill-transactions/${encodeURIComponent(transactionId)}`);
+      if (res?.status === 'completed') await syncWallet();
+      return { ok: true, data: res };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }, [syncWallet]);
+
   const payBill = useCallback(async ({ billerName, category, amount, reference, pin, pointsToRedeem }) => {
     try {
       const res = await apiPost('/wallet/billpay', { billerName, category, amount: parseFloat(amount), reference, pin, pointsToRedeem }, { type: 'bill', amount });
@@ -896,7 +958,7 @@ export function WalletProvider({ children }) {
   const value = {
     loading, onboarded, completeOnboarding, user, isAuthenticated, token,
     signup, login, logout, loginWithBiometricToken, balance, transactions,
-    transferMoney, payBill, buyAirtime, fundWallet, verifyFunding, syncWallet, recordInvoice,
+    transferMoney, payBill, buyAirtime, fetchVtpassServices, fetchVtpassVariations, verifyVtpassCustomer, purchaseVtpassBill, fetchVtpassBillTransaction, fundWallet, verifyFunding, syncWallet, recordInvoice,
     savingsGoals, createSavingsGoal, depositToSavings, withdrawFromSavings, savingsApy, lastInterestEarned,
     loan, creditLimit, requestLoan, repayLoan,
     isBalanceHidden, toggleBalanceHidden,

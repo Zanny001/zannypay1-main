@@ -13,6 +13,8 @@ import { useAlert } from '../context/AlertContext';
 
 const AMOUNTS = ['100', '200', '500', '1000', '2000', '5000'];
 const PROVIDERS = ['MTN', 'Airtel', 'Glo', '9mobile'];
+// Keep the purchase flow closed until a live airtime/data provider is integrated.
+const AIRTIME_AND_DATA_LIVE = false;
 
 // Merged in from the standalone DataScreen — a real plan catalog beats a
 // bare amount grid for data bundles, since data is sold in fixed tiers.
@@ -45,6 +47,10 @@ export default function AirtimeScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
 
   const handleTopup = () => {
+    if (!AIRTIME_AND_DATA_LIVE) {
+      alert('Airtime and data coming soon', 'Network top-ups will be enabled after a verified fulfilment provider is connected. Your wallet will not be charged while this service is unavailable.', null, { type: 'info' });
+      return;
+    }
     if (!phone || !amount) {
       alert('Details Required', 'Please enter a phone number and select an amount.');
       return;
@@ -98,6 +104,15 @@ export default function AirtimeScreen({ navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
+        <View style={[styles.availabilityCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <Ionicons name="time-outline" size={20} color={theme.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.availabilityTitle, { color: theme.text }]}>Top-ups are coming soon</Text>
+            <Text style={[styles.availabilityText, { color: theme.textMuted }]}>
+              We are completing provider integration and fulfilment checks. No airtime or data purchase will be charged yet.
+            </Text>
+          </View>
+        </View>
         {/* Tab Switcher */}
         <View style={[styles.tabContainer, { backgroundColor: theme.surface }]}>
           {['Airtime', 'Data Bundle'].map((tab) => (
@@ -200,7 +215,7 @@ export default function AirtimeScreen({ navigation }) {
           </>
         )}
 
-        <GradientButton title="Pay Now" onPress={handleTopup} style={{ marginTop: 20 }} />
+        <GradientButton title="Coming Soon" onPress={handleTopup} disabled={!AIRTIME_AND_DATA_LIVE} style={{ marginTop: 20 }} />
       </ScrollView>
 
       {/* PIN Confirmation Modal */}
@@ -261,6 +276,9 @@ const styles = StyleSheet.create({
   backBtn: { width: 40, height: 40, justifyContent: 'center' },
   headerTitle: { fontSize: 20, fontWeight: '800' },
   scroll: { padding: 20 },
+  availabilityCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, borderWidth: 1, borderRadius: 16, padding: 16, marginBottom: 18 },
+  availabilityTitle: { fontSize: 14, fontWeight: '800', marginBottom: 5 },
+  availabilityText: { fontSize: 12, lineHeight: 18 },
   tabContainer: { flexDirection: 'row', borderRadius: 16, padding: 6, marginBottom: 20 },
   tab: { flex: 1, paddingVertical: 14, alignItems: 'center', borderRadius: 12 },
   tabText: { fontSize: 15, fontWeight: '700' },

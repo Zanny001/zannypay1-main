@@ -371,7 +371,11 @@ export default function TransferScreen({ navigation, route }) {
           placeholderTextColor={theme.textMuted}
           keyboardType="number-pad"
           value={account}
-          onChangeText={setAccount}
+          onChangeText={(value) => {
+            setResolvedRecipient(null);
+            setBankLookupError(null);
+            setAccount(value.replace(/\D/g, '').slice(0, tab === 'bank' ? 10 : 11));
+          }}
           maxLength={tab === 'bank' ? 10 : 11}
         />
 
@@ -387,11 +391,18 @@ export default function TransferScreen({ navigation, route }) {
             <Text style={[styles.resolveText, { color: theme.danger || '#dc2626' }]}>{bankLookupError}</Text>
           </View>
         )}
-        {!resolving && resolvedRecipient && (
-          <View style={[styles.resolveBanner, { backgroundColor: `${theme.success}20` }]}>
-            <Ionicons name="checkmark-circle" size={16} color={theme.success} />
-            <Text style={[styles.resolveText, { color: theme.success, fontWeight: '700' }]}>
-              Sending to: {resolvedRecipient.name}
+        {!resolving && resolvedRecipient?.verified === true && tab === 'bank' && (
+          <View style={[styles.verifiedRecipientCard, { backgroundColor: theme.surface, borderColor: theme.success }]}>
+            <View style={styles.verifiedRecipientHeader}>
+              <Ionicons name="shield-checkmark" size={19} color={theme.success} />
+              <Text style={[styles.verifiedRecipientEyebrow, { color: theme.success }]}>ACCOUNT NAME VERIFIED</Text>
+            </View>
+            <Text style={[styles.verifiedRecipientName, { color: theme.text }]}>{resolvedRecipient.name}</Text>
+            <Text style={[styles.verifiedRecipientMeta, { color: theme.textMuted }]}>
+              {resolvedRecipient.accountNumber}  ·  {resolvedRecipient.bankName || bank}
+            </Text>
+            <Text style={[styles.verifiedRecipientFootnote, { color: theme.textMuted }]}>
+              Confirm this name and account number carefully before any withdrawal.
             </Text>
           </View>
         )}
@@ -451,21 +462,14 @@ export default function TransferScreen({ navigation, route }) {
 
         <GradientButton title="Next" onPress={handleInitiateTransfer} style={{ marginTop: 30 }} />
 
-        <View style={styles.promoBanner}>
-          <Text style={[styles.promoText, { color: theme.textMuted }]}>
-            <Text style={[styles.promoHighlight, { color: theme.primary }]}>
-              {tab === 'bank' ? 'FREE' : 'INSTANT'}
-            </Text>{' '}
-            | {tab === 'bank' ? 'Unlimited transfers with 0 fees' : 'Seamless transfers without delay'}
-          </Text>
-          <Ionicons name="chevron-forward" size={14} color={theme.textMuted} />
-        </View>
-
-        <TouchableOpacity style={[styles.monitorBanner, { backgroundColor: theme.surface }]}>
-          <Ionicons name="pulse-outline" size={20} color={theme.primary} />
-          <Text style={[styles.monitorText, { color: theme.text }]}>Bank transfer success rate monitor</Text>
-          <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
-        </TouchableOpacity>
+        {tab === 'bank' && (
+          <View style={[styles.payoutNotice, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Ionicons name="information-circle-outline" size={18} color={theme.textMuted} />
+            <Text style={[styles.payoutNoticeText, { color: theme.textMuted }]}>
+              Account-name verification is available. External bank withdrawals will become available after a payout provider is approved and connected. No money will be debited before then.
+            </Text>
+          </View>
+        )}
 
         {/* Sub Tabs */}
         <View style={styles.subTabContainer}>
@@ -539,6 +543,8 @@ export default function TransferScreen({ navigation, route }) {
               <TouchableOpacity
                 style={[styles.modalBankRow, { borderBottomColor: theme.surface }]}
                 onPress={() => {
+                  setResolvedRecipient(null);
+                  setBankLookupError(null);
                   setBank(item.name);
                   setBankCode(item.code);
                   setBankModalVisible(false);
@@ -631,6 +637,14 @@ const styles = StyleSheet.create({
   input: { borderRadius: 16, paddingHorizontal: 20, paddingVertical: 16, fontSize: 16, borderWidth: 1, fontWeight: '600' },
   resolveBanner: { flexDirection: 'row', alignItems: 'center', marginTop: 10, paddingVertical: 8, paddingHorizontal: 4 },
   resolveText: { fontSize: 13, marginLeft: 8 },
+  verifiedRecipientCard: { borderWidth: 1, borderRadius: 16, padding: 16, marginTop: 14 },
+  verifiedRecipientHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  verifiedRecipientEyebrow: { fontSize: 11, fontWeight: '800', letterSpacing: 0.8 },
+  verifiedRecipientName: { fontSize: 18, fontWeight: '800', marginTop: 10 },
+  verifiedRecipientMeta: { fontSize: 13, fontWeight: '600', marginTop: 5 },
+  verifiedRecipientFootnote: { fontSize: 11, marginTop: 8, lineHeight: 16 },
+  payoutNotice: { flexDirection: 'row', alignItems: 'flex-start', gap: 9, borderWidth: 1, borderRadius: 12, padding: 12, marginTop: 18 },
+  payoutNoticeText: { flex: 1, fontSize: 12, lineHeight: 18 },
   dropdownTrigger: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 16, borderWidth: 1 },
 
   zannyStaticSelect: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 16, borderWidth: 1 },
