@@ -462,6 +462,7 @@ export function WalletProvider({ children }) {
             pending: true,
             reference: attempt.reference,
             amount: Number(attempt.amount),
+            authorizationUrl: attempt.authorizationUrl || null,
             error: 'You have an earlier funding attempt awaiting confirmation. Check that payment before starting another amount.',
           };
         }
@@ -504,6 +505,7 @@ export function WalletProvider({ children }) {
           pending: true,
           reference: res.reference || attempt.reference,
           amount: Number(attempt.amount),
+          authorizationUrl: attempt.authorizationUrl || null,
           error: res.message || 'This payment is still being processed.',
         };
       }
