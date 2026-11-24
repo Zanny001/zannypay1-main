@@ -25,3 +25,5 @@ jobs:
           path: npm-audit.json
           if-no-files-found: ignore
       - run: npm test -- --runInBand
+      - name: Validate Android Expo bundle
+        run: npx expo export --platform android

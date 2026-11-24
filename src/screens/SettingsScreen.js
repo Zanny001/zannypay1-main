@@ -150,6 +150,23 @@ export default function SettingsScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
+        <Text style={[styles.sectionHeading, { color: theme.textMuted }]}>Services</Text>
+        <View style={[styles.cardGroup, { backgroundColor: theme.surface }]}>
+          <TouchableOpacity
+            style={[styles.clickableMenu, { borderBottomWidth: 0 }]}
+            onPress={() => navigation.navigate('ServiceStatus')}
+          >
+            <Ionicons name="pulse-outline" size={20} color={theme.primary} />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={[styles.menuLabel, { color: theme.text }]}>Service availability</Text>
+              <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 3 }}>
+                See which payment and verification services are connected
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
+          </TouchableOpacity>
+        </View>
+
         <Text style={[styles.sectionHeading, { color: theme.textMuted }]}>Notifications</Text>
         <View style={[styles.cardGroup, { backgroundColor: theme.surface }]}>
           <View style={[styles.settingRow, { borderBottomWidth: 0 }]}>
@@ -161,7 +178,7 @@ export default function SettingsScreen({ navigation }) {
           </View>
         </View>
 
-        <Text style={[styles.footerText, { color: theme.textMuted }]}>ZannyPay v2.1.0</Text>
+        <Text style={[styles.footerText, { color: theme.textMuted }]}>ZannyPay v1.1.0</Text>
         <Text style={[styles.footerCopyright, { color: theme.textMuted }]}>© {new Date().getFullYear()} ZannyPay. All rights reserved.</Text>
       </ScrollView>
 

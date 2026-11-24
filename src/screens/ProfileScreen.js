@@ -13,6 +13,16 @@ export default function ProfileScreen() {
   const { theme } = useTheme();
   const { user, logout } = useWallet();
   const navigation = useNavigation();
+  const kycStatus = String(user?.kycStatus || 'unverified').toLowerCase();
+  const isKycVerified = kycStatus === 'approved' || kycStatus === 'verified';
+  const isKycPending = kycStatus === 'pending';
+  const kycLabel = isKycVerified
+    ? `Verified · Tier ${user?.kycTier || 1}`
+    : isKycPending
+      ? 'Verification pending'
+      : kycStatus === 'rejected'
+        ? 'Verification needs attention'
+        : `Basic account · Tier ${user?.kycTier || 1}`;
 
   const handleLogout = () => {
     alert('Secure Logout', 'Are you sure you want to end this session?', [
@@ -43,8 +53,12 @@ export default function ProfileScreen() {
           <View style={styles.headerTextWrap}>
             <Text style={[styles.name, { color: theme.text }]}>{user?.name || 'ZannyPay Member'}</Text>
             <View style={styles.tierBadge}>
-              <Ionicons name="shield-checkmark" size={12} color="#00C48C" />
-              <Text style={styles.tierText}>Verified · Tier {user?.kycTier || 1}</Text>
+              <Ionicons
+                name={isKycVerified ? 'shield-checkmark' : isKycPending ? 'time-outline' : 'shield-outline'}
+                size={12}
+                color={isKycVerified ? '#00C48C' : isKycPending ? '#D69E36' : theme.textMuted}
+              />
+              <Text style={styles.tierText}>{kycLabel}</Text>
             </View>
           </View>
           <Ionicons name="chevron-forward" size={18} color={theme.textMuted} style={{ marginRight: 8 }} />

@@ -20,9 +20,7 @@ const STORAGE_KEYS = {
   LOCAL_INVOICES: 'zannypay:localInvoices',
 };
 
-const SAVINGS_APY = 0.15;
 const STARTING_BALANCE = 0;
-const BASE_CREDIT_LIMIT = 50000;
 
 const toNumber = (value) => {
   const n = Number(value);
@@ -48,7 +46,7 @@ export function WalletProvider({ children }) {
   const [transactions, setTransactions] = useState([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [savingsGoals, setSavingsGoals] = useState([]);
-  const [savingsApy, setSavingsApy] = useState(SAVINGS_APY);
+  const [savingsApy, setSavingsApy] = useState(0);
   const [lastInterestEarned, setLastInterestEarned] = useState(null);
   const [loan, setLoan] = useState(null);
   const [isBalanceHidden, setIsBalanceHidden] = useState(false);
@@ -586,16 +584,9 @@ export function WalletProvider({ children }) {
     }
   }, []);
 
-  const totalCredits = useMemo(() => {
-    return (transactions || []).filter((t) => t.type === 'credit').reduce((sum, t) => sum + Math.abs(toNumber(t.amount)), 0);
-  }, [transactions]);
-
-  const computedCreditLimit = useMemo(() => {
-    const computed = BASE_CREDIT_LIMIT + totalCredits * 0.15;
-    return Math.min(Math.round(computed / 1000) * 1000, 1000000);
-  }, [totalCredits]);
-
-  const creditLimit = serverCreditLimit !== null ? serverCreditLimit : computedCreditLimit;
+  // Never manufacture a borrowing limit from wallet activity. The backend
+  // must return an explicitly underwritten limit before the UI can offer credit.
+  const creditLimit = serverCreditLimit !== null ? serverCreditLimit : 0;
 
   const requestLoan = useCallback(async ({ amount, termDays }) => {
     try {

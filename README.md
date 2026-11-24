@@ -11,25 +11,31 @@ The UI, navigation, and wallet logic in this app talk to a real backend endpoint
 authentication, balance, and transactions. If that backend isn't deployed/running yet, auth
 calls will fail — this app is the front-end half of a real product, not a mocked demo.
 
-A few screens are still intentionally front-end-only placeholders until their backend
-counterparts exist:
-- **Virtual Card** (`CardScreen.js`) shows a static demo card number — wire it up to your card
-  issuance provider (e.g. Sudo Africa, Union54) before relying on it for real transactions.
-- **Developer Console** (`DeveloperConsoleScreen.js`) shows illustrative logs and a generated
-  key string for UI purposes — it is not connected to any real API-key or webhook system yet.
-- **Rewards** (`RewardsScreen.js`) tracks daily check-in points locally per-device/per-user via
-  AsyncStorage — move this server-side if points should be redeemable for real value.
+The app is connected to the ZannyPay NestJS API, but a connected screen is not automatically a
+live financial service. Production safeguards deliberately block capabilities that still lack
+approved providers or funded facilities.
 
-To take this to a fully licensed, live money-moving product you'd still need, in rough order:
+Current integration boundaries:
+- **Wallet, internal transfers, bank-directory/account-name lookup, transaction history,
+  beneficiaries, savings goals, budgets, invoices, disputes and recurring-transfer workflows**
+  have backend APIs. External bank payouts still require a live payout provider and end-to-end
+  reconciliation before they can be enabled.
+- **Phone OTP and email verification** are not part of the current signup flow. Signup currently
+  collects details, then a PIN, then an optional referral code. Phone OTP enforcement remains
+  disabled until a real delivery provider is approved and the mobile flow is updated.
+- **Virtual card issuing, BVN/NIN/liveness verification, airtime/data/bill fulfilment and lending**
+  do not have production provider integrations. The backend rejects mock success in production.
+- **Savings goals** support deposits and withdrawals. Production savings interest is paused until
+  there is a contracted, funded yield source and the required approvals.
+- **Rewards** use backend-tracked daily check-ins and points. Points are not cash and should not
+  be advertised as redeemable money unless a funded redemption program exists.
+- **Developer Console** is development-only illustrative UI. It does not issue real API keys or
+  create production credentials.
 
-1. **A business entity** and, depending on your country, a money-transmitter/e-money license
-   (or partner with someone who already holds one).
-2. **A licensed payment gateway** as your rails — e.g. Paystack or Flutterwave (Nigeria/Africa),
-   Stripe (US/EU). Both offer free sandbox/test-mode accounts.
-3. **KYC/AML** — identity verification (BVN/NIN checks in Nigeria, or ID verification services
-   elsewhere) before letting users hold/move real balances.
-4. **Security hardening** — the backend should never trust client-submitted balances; rate
-   limiting, fraud monitoring, and a security audit before handling real funds.
+A live money-moving launch still requires the appropriate Nigerian regulatory authorization or
+licensed partners, real provider approvals, operational controls, fraud monitoring, reconciliation,
+customer support, and independent security/compliance review. Do not treat test-mode credentials
+or a configured environment variable as proof that a service is production-ready.
 
 ## Tech stack
 
@@ -46,10 +52,10 @@ To take this to a fully licensed, live money-moving product you'd still need, in
 
 ## Offline behavior
 
-If a transfer or bill payment is submitted with no connection, `apiClient.js`:
-1. Queues the exact request in `SyncEngine` (backed by AsyncStorage) so it can be replayed
-   automatically the next time the app opens with connectivity.
-2. Offers an immediate USSD dial-code fallback so the user isn't blocked right now.
+The app can display cached, previously fetched information when connectivity is lost.
+Financial mutations (transfers, wallet funding, bill payments and other money movement) fail
+closed while offline: they are **never queued for automatic replay** and no USSD fallback is
+claimed. Users must reconnect, review the details and submit the transaction again.
 
 ## Running it — free options
 
