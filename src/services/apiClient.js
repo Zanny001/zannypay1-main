@@ -100,11 +100,12 @@ const safeEndpointLabel = (endpoint) => String(endpoint || '').split('?')[0];
 // ==========================================
 // IDEMPOTENCY
 // ==========================================
-const IDEMPOTENT_ENDPOINTS = ['/wallet/transfer', '/wallet/billpay', '/wallet/airtime', '/wallet/bill-purchase', '/wallet/bill-verify'];
+const IDEMPOTENT_ENDPOINTS = ['/wallet/transfer', '/wallet/billpay', '/wallet/airtime', '/wallet/bill-purchase'];
 // Financial mutations can contain transaction PINs and must never be persisted
-// in the plaintext AsyncStorage retry queue. The caller must retry online after
-// reconnecting; idempotency keys still protect an explicitly retried request.
+// in the plaintext AsyncStorage retry queue. Customer verification requests
+// also contain private biller identifiers and are never queued either.
 const NEVER_QUEUE_FINANCIAL_ENDPOINTS = new Set(IDEMPOTENT_ENDPOINTS);
+const NEVER_QUEUE_SENSITIVE_ENDPOINTS = new Set(['/wallet/bill-verify']);
 
 export function generateIdempotencyKey() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
@@ -180,7 +181,7 @@ const apiWrite = async (method, endpoint, payload, fallbackConfig, isRetry) => {
       error.message.includes('Failed to fetch')
     ) {
       const canPersistForRetry =
-        !isRetry && !NEVER_QUEUE_FINANCIAL_ENDPOINTS.has(endpoint);
+        !isRetry && !NEVER_QUEUE_FINANCIAL_ENDPOINTS.has(endpoint) && !NEVER_QUEUE_SENSITIVE_ENDPOINTS.has(endpoint);
       if (canPersistForRetry) {
         await SyncEngine.enqueue(`${method}_RETRY`, {
           method,
@@ -190,11 +191,12 @@ const apiWrite = async (method, endpoint, payload, fallbackConfig, isRetry) => {
       }
       // A carrier USSD code is not a verified ZannyPay payout/fulfilment rail.
       // Never launch a dialer as a substitute for an unconfirmed API operation.
-      throw new Error(
-        NEVER_QUEUE_FINANCIAL_ENDPOINTS.has(endpoint)
-          ? 'Network offline. This financial transaction was not saved or replayed; reconnect and retry it.'
-          : 'Network offline. Please reconnect and try again.',
-      );
+      const offlineMessage = NEVER_QUEUE_FINANCIAL_ENDPOINTS.has(endpoint)
+        ? 'Network offline. This financial transaction was not saved or replayed; reconnect and retry it.'
+        : NEVER_QUEUE_SENSITIVE_ENDPOINTS.has(endpoint)
+          ? 'Network offline. This account verification request was not saved or replayed; reconnect and try again.'
+          : 'Network offline. Please reconnect and try again.';
+      throw new Error(offlineMessage);
     }
     throw error;
   }
