@@ -15,7 +15,7 @@ import { haptic } from '../theme/motion';
 
 const isValidZannyPayPayload = (payload) => {
   if (!payload || typeof payload !== 'object' || payload.app !== 'ZannyPay') return false;
-  if (typeof payload.account !== 'string' || !/^\\d{10,11}$/.test(payload.account)) return false;
+  if (typeof payload.account !== 'string' || !/^\d{10,11}$/.test(payload.account)) return false;
   if (payload.name !== undefined && typeof payload.name !== 'string') return false;
   if (payload.amount !== undefined && payload.amount !== null) {
     if (typeof payload.amount !== 'number' || !Number.isFinite(payload.amount) || payload.amount <= 0) {
@@ -55,7 +55,7 @@ function MyCodeTab({ user }) {
   const glowOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.25, 0.5] });
 
   const handleShare = async () => {
-    if (!accountNumber || !/^\\d{10,11}$/.test(accountNumber) || !amountIsValid) {
+    if (!accountNumber || !/^\d{10,11}$/.test(accountNumber) || !amountIsValid) {
       return;
     }
     try {
@@ -71,9 +71,9 @@ function MyCodeTab({ user }) {
       // Fall back to a text share if image capture or native sharing is unavailable.
     }
 
-    const amountLine = amountValue ? `\\nRequested Amount: ₦${amountValue}` : '';
+    const amountLine = amountValue ? `\nRequested Amount: ₦${amountValue}` : '';
     await Share.share({
-      message: `Pay ${user?.name || 'ZannyPay User'}\\nAccount: ${accountNumber}${amountLine}\\n\\nOpen ZannyPay and send to this account number.`,
+      message: `Pay ${user?.name || 'ZannyPay User'}\nAccount: ${accountNumber}${amountLine}\n\nOpen ZannyPay and send to this account number.`,
     });
   };
 
@@ -82,7 +82,7 @@ function MyCodeTab({ user }) {
       <View style={styles.codeWrap}>
         <Animated.View style={[styles.glow, { transform: [{ scale: glowScale }], opacity: glowOpacity }]} />
         <View ref={codeCardRef} collapsable={false} style={styles.codeCard}>
-          {accountNumber && /^\\d{10,11}$/.test(accountNumber) ? (
+          {accountNumber && /^\d{10,11}$/.test(accountNumber) ? (
             <QRCode value={qrPayload} size={180} color={colors.textDark} backgroundColor="white" />
           ) : (
             <View style={styles.qrUnavailable}>
@@ -106,7 +106,7 @@ function MyCodeTab({ user }) {
           placeholder="₦0.00"
           keyboardType="decimal-pad"
           value={requestAmount}
-          onChangeText={(value) => setRequestAmount(value.replace(/[^0-9.]/g, '').replace(/(\\..*)\\./g, '$1'))}
+          onChangeText={(value) => setRequestAmount(value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1'))}
         />
         {!amountIsValid && <Text style={styles.validationText}>Enter a valid amount greater than zero.</Text>}
       </View>
@@ -114,7 +114,7 @@ function MyCodeTab({ user }) {
       <GradientButton
         title="Share My QR Code"
         onPress={handleShare}
-        disabled={!accountNumber || !/^\\d{10,11}$/.test(accountNumber) || !amountIsValid}
+        disabled={!accountNumber || !/^\d{10,11}$/.test(accountNumber) || !amountIsValid}
         style={{ marginTop: 24 }}
       />
     </FadeInView>
