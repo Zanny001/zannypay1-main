@@ -45,13 +45,31 @@ export const clearToken = async () => {
 // ==========================================
 // LOGGING
 // ==========================================
-const SENSITIVE_KEYS = ['pin', 'password', 'cvv', 'token', 'bvn'];
+const SENSITIVE_KEY_PARTS = [
+  'pin',
+  'password',
+  'passcode',
+  'cvv',
+  'token',
+  'secret',
+  'authorization',
+  'cookie',
+  'bvn',
+  'nin',
+  'otp',
+  'accountnumber',
+  'cardnumber',
+  'phone',
+  'email',
+  'apikey',
+];
 
-function redact(value) {
+export function redact(value) {
   if (!value || typeof value !== 'object') return value;
   const clone = Array.isArray(value) ? [...value] : { ...value };
   for (const key of Object.keys(clone)) {
-    if (SENSITIVE_KEYS.includes(key.toLowerCase())) {
+    const normalizedKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (SENSITIVE_KEY_PARTS.some((part) => normalizedKey.includes(part))) {
       clone[key] = '[redacted]';
     } else if (typeof clone[key] === 'object' && clone[key] !== null) {
       clone[key] = redact(clone[key]);
