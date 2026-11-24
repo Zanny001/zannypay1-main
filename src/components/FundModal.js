@@ -84,8 +84,8 @@ export default function FundModal({ visible, onClose }) {
     }
     setLoading(true);
     const result = await fundWallet(parsedAmount);
-    setLoading(false);
     if (result.completed) {
+      setLoading(false);
       await syncWallet();
       alert('Payment confirmed', 'Your wallet has already been credited for this payment attempt.', null, { type: 'success' });
       setAmount('');
@@ -93,12 +93,14 @@ export default function FundModal({ visible, onClose }) {
       return;
     }
     if (result.pending) {
+      setLoading(false);
       setPendingReference(result.reference);
       setPendingAmount(Number(result.amount || parsedAmount));
       setStatusMessage(result.error || 'This payment attempt is already processing.');
       return;
     }
     if (!result.ok || !result.authorizationUrl) {
+      setLoading(false);
       alert('Could not start payment', result.error || 'Please try again in a moment.', null, { type: 'error' });
       return;
     }
@@ -115,6 +117,7 @@ export default function FundModal({ visible, onClose }) {
     } catch {
       setStatusMessage('Checkout could not be reopened. We will check the payment status directly.');
     }
+    setLoading(false);
     await checkStatus(result.reference, parsedAmount);
   };
 
