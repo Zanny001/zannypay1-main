@@ -114,7 +114,7 @@ export default function SavingsScreen({ navigation }) {
               </Text>
             </View>
             <View style={styles.assetsRight}>
-              <Text style={[styles.assetsLabel, { color: theme.textMuted }]}>Earning up to</Text>
+              <Text style={[styles.assetsLabel, { color: theme.textMuted }]}>Savings yield</Text>
               <Text style={[styles.earningsAmount, { color: theme.success }]}>
                 {Math.round(savingsApy * 100)}% p.a.
               </Text>
