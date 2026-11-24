@@ -100,7 +100,7 @@ const safeEndpointLabel = (endpoint) => String(endpoint || '').split('?')[0];
 // ==========================================
 // IDEMPOTENCY
 // ==========================================
-const IDEMPOTENT_ENDPOINTS = ['/wallet/transfer', '/wallet/billpay', '/wallet/airtime', '/wallet/bill-purchase'];
+const IDEMPOTENT_ENDPOINTS = ['/wallet/transfer', '/wallet/billpay', '/wallet/airtime', '/wallet/bill-purchase', '/wallet/fund'];
 // Financial mutations can contain transaction PINs and must never be persisted
 // in the plaintext AsyncStorage retry queue. Customer verification requests
 // also contain private biller identifiers and are never queued either.

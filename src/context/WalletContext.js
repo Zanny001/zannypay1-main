@@ -18,6 +18,7 @@ const STORAGE_KEYS = {
   LOAN: 'zannypay:activeLoan',
   HIDE_BALANCE: 'zannypay:hideBalance',
   LOCAL_INVOICES: 'zannypay:localInvoices',
+  FUNDING_ATTEMPT: 'zannypay:fundingAttempt',
 };
 
 const STARTING_BALANCE = 0;
@@ -302,6 +303,8 @@ export function WalletProvider({ children }) {
     // An explicit logout means fully logged out — the biometric
     // convenience credential goes with it, not just the active session.
     if (user?.phone) await BiometricAuth.clearFor(user.phone);
+    fundingAttemptRef.current = null;
+    await saveJSON(STORAGE_KEYS.FUNDING_ATTEMPT, null);
   }, [user]);
 
   const transferMoney = useCallback(async ({ recipientAccount, amount, pin, bank, bankCode, note, recipientName, idempotencyKey }) => {
@@ -434,30 +437,117 @@ export function WalletProvider({ children }) {
     }
   }, [syncWallet]);
 
-  const fundWallet = useCallback(async (amount) => {
-    try {
-      const res = await apiPost('/wallet/fund', { amount: parseFloat(amount) });
-      if (res && res.success) {
-        return { ok: true, authorizationUrl: res.authorizationUrl, reference: res.reference };
-      }
-      return { ok: false, error: res?.error || 'Funding request failed.' };
-    } catch (err) {
-      return { ok: false, error: err.message };
+  const fundingAttemptRef = useRef(null);
+  const clearFundingAttempt = useCallback(async (reference) => {
+    const current = fundingAttemptRef.current || await loadJSON(STORAGE_KEYS.FUNDING_ATTEMPT, null);
+    if (!reference || current?.reference === reference) {
+      fundingAttemptRef.current = null;
+      await saveJSON(STORAGE_KEYS.FUNDING_ATTEMPT, null);
     }
   }, []);
 
-  // Fallback confirmation for Paystack funding — webhooks can be slow,
-  // unconfigured in dev, or never reach an unpublished backend at all, so
-  // this asks Paystack directly (via the backend) whether the payment went
-  // through, right after the checkout browser session returns.
+  const fundWallet = useCallback(async (amount) => {
+    const normalizedAmount = Number(amount);
+    try {
+      let attempt = fundingAttemptRef.current || await loadJSON(STORAGE_KEYS.FUNDING_ATTEMPT, null);
+      if (attempt?.userId && attempt.userId !== user?.id) {
+        attempt = null;
+        fundingAttemptRef.current = null;
+        await saveJSON(STORAGE_KEYS.FUNDING_ATTEMPT, null);
+      }
+      if (attempt && Number(attempt.amount) !== normalizedAmount) {
+        if (attempt.reference) {
+          return {
+            ok: false,
+            pending: true,
+            reference: attempt.reference,
+            amount: Number(attempt.amount),
+            authorizationUrl: attempt.authorizationUrl || null,
+            error: 'You have an earlier funding attempt awaiting confirmation. Check that payment before starting another amount.',
+          };
+        }
+        return {
+          ok: false,
+          error: 'A previous funding request is still being recovered. Enter the same amount again so ZannyPay can safely resume that payment attempt.',
+        };
+      }
+      if (!attempt) {
+        attempt = {
+          amount: normalizedAmount,
+          userId: user?.id || null,
+          idempotencyKey: generateIdempotencyKey(),
+          reference: null,
+        };
+        fundingAttemptRef.current = attempt;
+        // Persist before the network request so a timeout or app restart
+        // cannot silently generate a second payment intent.
+        await saveJSON(STORAGE_KEYS.FUNDING_ATTEMPT, attempt);
+      } else {
+        fundingAttemptRef.current = attempt;
+      }
+
+      const res = await apiPost('/wallet/fund', {
+        amount: normalizedAmount,
+        idempotencyKey: attempt.idempotencyKey,
+      });
+      if (res?.reference) {
+        attempt = { ...attempt, reference: res.reference };
+        fundingAttemptRef.current = attempt;
+        await saveJSON(STORAGE_KEYS.FUNDING_ATTEMPT, attempt);
+      }
+      if (res?.status === 'completed') {
+        await clearFundingAttempt(res.reference);
+        return { ok: true, completed: true, reference: res.reference };
+      }
+      if (res?.status === 'pending') {
+        return {
+          ok: false,
+          pending: true,
+          reference: res.reference || attempt.reference,
+          amount: Number(attempt.amount),
+          authorizationUrl: attempt.authorizationUrl || null,
+          error: res.message || 'This payment is still being processed.',
+        };
+      }
+      if (res?.success && res.authorizationUrl) {
+        attempt = { ...attempt, reference: res.reference, authorizationUrl: res.authorizationUrl };
+        fundingAttemptRef.current = attempt;
+        await saveJSON(STORAGE_KEYS.FUNDING_ATTEMPT, attempt);
+        return { ok: true, authorizationUrl: res.authorizationUrl, reference: res.reference, amount: normalizedAmount };
+      }
+      if (res?.status === 'failed') await clearFundingAttempt(res.reference);
+      return { ok: false, error: res?.message || res?.error || 'Funding request failed.' };
+    } catch (err) {
+      // Keep the same idempotency key after an ambiguous network failure.
+      return { ok: false, error: err.message };
+    }
+  }, [clearFundingAttempt, user?.id]);
+
+  const getPendingFundingAttempt = useCallback(async () => {
+    let attempt = fundingAttemptRef.current || await loadJSON(STORAGE_KEYS.FUNDING_ATTEMPT, null);
+    if (!attempt) return null;
+    // Never surface a pending payment belonging to another signed-in user,
+    // or an old unscoped attempt from before account binding was introduced.
+    if (!attempt.userId || attempt.userId !== user?.id) {
+      fundingAttemptRef.current = null;
+      await saveJSON(STORAGE_KEYS.FUNDING_ATTEMPT, null);
+      return null;
+    }
+    fundingAttemptRef.current = attempt;
+    return { amount: Number(attempt.amount), reference: attempt.reference || null, authorizationUrl: attempt.authorizationUrl || null };
+  }, [user?.id]);
+
   const verifyFunding = useCallback(async (reference) => {
     try {
-      const res = await apiGet(`/wallet/verify/${reference}`);
+      const res = await apiGet(`/wallet/verify/${encodeURIComponent(reference)}`);
+      if (res?.success || ['failed', 'abandoned', 'reversed'].includes(String(res?.status).toLowerCase())) {
+        await clearFundingAttempt(reference);
+      }
       return { ok: !!res?.success, status: res?.status || 'pending' };
     } catch (err) {
       return { ok: false, status: 'pending', error: err.message };
     }
-  }, []);
+  }, [clearFundingAttempt]);
 
   const recordInvoice = useCallback(async ({ clientName, amount, description }) => {
     try {
@@ -958,7 +1048,7 @@ export function WalletProvider({ children }) {
   const value = {
     loading, onboarded, completeOnboarding, user, isAuthenticated, token,
     signup, login, logout, loginWithBiometricToken, balance, transactions,
-    transferMoney, payBill, buyAirtime, fetchVtpassServices, fetchVtpassVariations, verifyVtpassCustomer, purchaseVtpassBill, fetchVtpassBillTransaction, fundWallet, verifyFunding, syncWallet, recordInvoice,
+    transferMoney, payBill, buyAirtime, fetchVtpassServices, fetchVtpassVariations, verifyVtpassCustomer, purchaseVtpassBill, fetchVtpassBillTransaction, fundWallet, verifyFunding, getPendingFundingAttempt, syncWallet, recordInvoice,
     savingsGoals, createSavingsGoal, depositToSavings, withdrawFromSavings, savingsApy, lastInterestEarned,
     loan, creditLimit, requestLoan, repayLoan,
     isBalanceHidden, toggleBalanceHidden,
