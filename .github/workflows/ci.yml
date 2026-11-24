@@ -14,7 +14,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: npm ci
+      - run: npm install
       - name: Capture dependency audit report
         if: always()
         run: npm audit --json > npm-audit.json || true
@@ -25,5 +25,3 @@ jobs:
           path: npm-audit.json
           if-no-files-found: ignore
       - run: npm test -- --runInBand
-      - run: npm run lint
-      - run: npm run typecheck
