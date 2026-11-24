@@ -254,6 +254,16 @@ export default function TransferScreen({ navigation, route }) {
       alert('Verify Account', 'Select a bank and enter a valid 10-digit account number. Wait for the account name to be confirmed before continuing.');
       return;
     }
+    // Do not collect a transaction PIN or submit an external payout until
+    // the backend has a verified disbursement provider. The account-name
+    // lookup is live, but name resolution alone is not a money-transfer rail.
+    if (tab === 'bank') {
+      alert(
+        'Bank Transfers Unavailable',
+        'The recipient account can be verified, but outgoing bank transfers are not yet connected to a live payout provider. You can still send money to another ZannyPay account.',
+      );
+      return;
+    }
     if (parseFloat(amount) > balance) {
       alert('Insufficient Funds', 'You do not have enough balance for this transfer.');
       return;
