@@ -79,7 +79,7 @@ export default function FundModal({ visible, onClose }) {
     }
     if (result.pending) {
       setPendingReference(result.reference);
-      setPendingAmount(parsedAmount);
+      setPendingAmount(Number(result.amount || parsedAmount));
       setStatusMessage(result.error || 'This payment attempt is already processing.');
       return;
     }
