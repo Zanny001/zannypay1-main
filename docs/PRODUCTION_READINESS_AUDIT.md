@@ -16,6 +16,8 @@ This is a source-level review of the supplied mobile v19 Ultra, admin v10 Ultra,
 - Backend storage and OTP: the supplied environment example includes local storage and mock/rollout settings. Production startup must reject mock providers, ephemeral local storage, missing secure secrets, and disabled mandatory OTP policy.
 - Admin: the BFF keeps the bearer token server-side in an httpOnly cookie; backend authorization remains the security boundary. E2E coverage is still required for login, 2FA, session revocation, role boundaries, privileged actions, reversals, exports, CSRF, and proxy allowlisting.
 
+- Mobile offline transaction queue: financial mutation payloads can contain transaction PINs; the plaintext AsyncStorage queue is not an acceptable place to persist them. The engineering branch now excludes transfer, bill-payment and airtime/data endpoints from offline persistence/replay. Customers must reconnect and retry; stable idempotency keys remain on explicit retries. Regression tests cover all three endpoints.
+
 ## Required production-readiness work
 ### Backend
 1. Integrate licensed payment rails for funding, transfers, bills, refunds, reversals, settlement and reconciliation.
