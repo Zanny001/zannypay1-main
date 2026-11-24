@@ -303,6 +303,8 @@ export function WalletProvider({ children }) {
     // An explicit logout means fully logged out — the biometric
     // convenience credential goes with it, not just the active session.
     if (user?.phone) await BiometricAuth.clearFor(user.phone);
+    fundingAttemptRef.current = null;
+    await saveJSON(STORAGE_KEYS.FUNDING_ATTEMPT, null);
   }, [user]);
 
   const transferMoney = useCallback(async ({ recipientAccount, amount, pin, bank, bankCode, note, recipientName, idempotencyKey }) => {
@@ -448,6 +450,11 @@ export function WalletProvider({ children }) {
     const normalizedAmount = Number(amount);
     try {
       let attempt = fundingAttemptRef.current || await loadJSON(STORAGE_KEYS.FUNDING_ATTEMPT, null);
+      if (attempt?.userId && attempt.userId !== user?.id) {
+        attempt = null;
+        fundingAttemptRef.current = null;
+        await saveJSON(STORAGE_KEYS.FUNDING_ATTEMPT, null);
+      }
       if (attempt && Number(attempt.amount) !== normalizedAmount) {
         if (attempt.reference) {
           return {
@@ -466,6 +473,7 @@ export function WalletProvider({ children }) {
       if (!attempt) {
         attempt = {
           amount: normalizedAmount,
+          userId: user?.id || null,
           idempotencyKey: generateIdempotencyKey(),
           reference: null,
         };
