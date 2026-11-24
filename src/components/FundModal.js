@@ -90,11 +90,15 @@ export default function FundModal({ visible, onClose }) {
     setPendingReference(result.reference);
     setPendingAmount(parsedAmount);
     const returnUrl = Linking.createURL('payment-complete');
-    const browserResult = await WebBrowser.openAuthSessionAsync(result.authorizationUrl, returnUrl);
-    // A browser close/cancel is not proof of payment. Always ask our server
-    // to verify the provider transaction before showing a success state.
-    if (browserResult?.type === 'cancel' || browserResult?.type === 'dismiss') {
-      setStatusMessage('Checkout was closed. We are checking whether Paystack received a successful payment.');
+    try {
+      const browserResult = await WebBrowser.openAuthSessionAsync(result.authorizationUrl, returnUrl);
+      // A browser close/cancel is not proof of payment. Always ask our server
+      // to verify the provider transaction before showing a success state.
+      if (browserResult?.type === 'cancel' || browserResult?.type === 'dismiss') {
+        setStatusMessage('Checkout was closed. We are checking whether Paystack received a successful payment.');
+      }
+    } catch {
+      setStatusMessage('Checkout could not be reopened. We will check the payment status directly.');
     }
     await checkStatus(result.reference, parsedAmount);
   };
