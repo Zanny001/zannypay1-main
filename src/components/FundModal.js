@@ -20,6 +20,7 @@ export default function FundModal({ visible, onClose }) {
   const [confirming, setConfirming] = useState(false);
   const [pendingReference, setPendingReference] = useState(null);
   const [pendingAmount, setPendingAmount] = useState(null);
+  const [pendingAuthorizationUrl, setPendingAuthorizationUrl] = useState(null);
   const [statusMessage, setStatusMessage] = useState('');
 
   useEffect(() => {
@@ -30,6 +31,7 @@ export default function FundModal({ visible, onClose }) {
       setAmount(attempt.reference ? '' : String(attempt.amount));
       setPendingAmount(attempt.amount);
       setPendingReference(attempt.reference);
+      setPendingAuthorizationUrl(attempt.authorizationUrl || null);
       if (attempt.reference) {
         setStatusMessage('A previous funding attempt is awaiting confirmation. Check its status before starting another payment.');
       }
@@ -46,6 +48,7 @@ export default function FundModal({ visible, onClose }) {
     setAmount('');
     setPendingReference(null);
     setPendingAmount(null);
+    setPendingAuthorizationUrl(null);
     setStatusMessage('');
     onClose();
   };
@@ -65,6 +68,7 @@ export default function FundModal({ visible, onClose }) {
     if (latest.ok) {
       setPendingReference(null);
       setPendingAmount(null);
+      setPendingAuthorizationUrl(null);
       setStatusMessage('');
       alert('Payment confirmed', `${money(value)} has been added to your ZannyPay wallet.`, null, { type: 'success' });
       setAmount('');
@@ -96,6 +100,7 @@ export default function FundModal({ visible, onClose }) {
       setLoading(false);
       setPendingReference(result.reference);
       setPendingAmount(Number(result.amount || parsedAmount));
+      setPendingAuthorizationUrl(result.authorizationUrl || null);
       setStatusMessage(result.error || 'This payment attempt is already processing.');
       return;
     }
@@ -106,6 +111,7 @@ export default function FundModal({ visible, onClose }) {
     }
     setPendingReference(result.reference);
     setPendingAmount(parsedAmount);
+    setPendingAuthorizationUrl(result.authorizationUrl);
     const returnUrl = Linking.createURL('payment-complete');
     try {
       const browserResult = await WebBrowser.openAuthSessionAsync(result.authorizationUrl, returnUrl);
@@ -119,6 +125,21 @@ export default function FundModal({ visible, onClose }) {
     }
     setLoading(false);
     await checkStatus(result.reference, parsedAmount);
+  };
+
+  const resumeCheckout = async () => {
+    if (!pendingAuthorizationUrl) return;
+    setLoading(true);
+    try {
+      await WebBrowser.openAuthSessionAsync(
+        pendingAuthorizationUrl,
+        Linking.createURL('payment-complete'),
+      );
+    } catch {
+      setStatusMessage('Checkout could not be reopened. You can still check the payment status below.');
+    }
+    setLoading(false);
+    await checkStatus();
   };
 
   const busy = loading || confirming;
@@ -145,6 +166,9 @@ export default function FundModal({ visible, onClose }) {
                 <Text style={styles.metaLabel}>PAYMENT REFERENCE</Text>
                 <Text selectable style={styles.reference}>{pendingReference}</Text>
               </View>
+              {pendingAuthorizationUrl ? (
+                <GradientButton title="Resume secure checkout" onPress={resumeCheckout} loading={busy} />
+              ) : null}
               <GradientButton title="Check payment status" onPress={() => checkStatus()} loading={busy} />
               <Text style={styles.safeNote}>Your wallet is credited only after Paystack confirms the exact amount and currency. Please don't pay again using this same attempt.</Text>
               <TouchableOpacity style={styles.cancel} onPress={close}><Text style={styles.cancelText}>Close</Text></TouchableOpacity>
