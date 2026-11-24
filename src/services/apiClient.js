@@ -128,7 +128,7 @@ const IDEMPOTENT_ENDPOINTS = ['/wallet/transfer', '/wallet/billpay', '/wallet/ai
 // reconnecting; idempotency keys still protect an explicitly retried request.
 const NEVER_QUEUE_FINANCIAL_ENDPOINTS = new Set(IDEMPOTENT_ENDPOINTS);
 
-function generateIdempotencyKey() {
+export function generateIdempotencyKey() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
 }
 
