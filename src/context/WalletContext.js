@@ -438,7 +438,7 @@ export function WalletProvider({ children }) {
   const fundingAttemptRef = useRef(null);
   const clearFundingAttempt = useCallback(async (reference) => {
     const current = fundingAttemptRef.current || await loadJSON(STORAGE_KEYS.FUNDING_ATTEMPT, null);
-    if (!reference || !current?.reference || current.reference === reference) {
+    if (!reference || current?.reference === reference) {
       fundingAttemptRef.current = null;
       await saveJSON(STORAGE_KEYS.FUNDING_ATTEMPT, null);
     }
@@ -449,12 +449,18 @@ export function WalletProvider({ children }) {
     try {
       let attempt = fundingAttemptRef.current || await loadJSON(STORAGE_KEYS.FUNDING_ATTEMPT, null);
       if (attempt && Number(attempt.amount) !== normalizedAmount) {
+        if (attempt.reference) {
+          return {
+            ok: false,
+            pending: true,
+            reference: attempt.reference,
+            amount: Number(attempt.amount),
+            error: 'You have an earlier funding attempt awaiting confirmation. Check that payment before starting another amount.',
+          };
+        }
         return {
           ok: false,
-          pending: true,
-          reference: attempt.reference,
-          amount: Number(attempt.amount),
-          error: 'You have an earlier funding attempt awaiting confirmation. Check that payment before starting another amount.',
+          error: 'A previous funding request is still being recovered. Enter the same amount again so ZannyPay can safely resume that payment attempt.',
         };
       }
       if (!attempt) {
