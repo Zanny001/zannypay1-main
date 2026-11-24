@@ -1,4 +1,4 @@
-import { Platform, Alert, Linking } from 'react-native';
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { SyncEngine } from './SyncEngine';
 
@@ -58,6 +58,8 @@ const SENSITIVE_KEY_PARTS = [
   'nin',
   'otp',
   'accountnumber',
+  'recipientaccount',
+  'account',
   'cardnumber',
   'phone',
   'email',
@@ -89,37 +91,11 @@ function devLog(...args) {
   if (__DEV__) console.log(...args);
 }
 
-// ==========================================
-// USSD FALLBACK SYSTEM
-// ==========================================
-const triggerUssdFallback = (fallbackConfig, onDialed) => {
-  if (!fallbackConfig) return;
-  const { type, amount, account } = fallbackConfig;
+// Never write query-string values to device logs. Account-resolution URLs
+// contain full bank account numbers, which are sensitive personal data.
+const safeEndpointLabel = (endpoint) => String(endpoint || '').split('?')[0];
 
-  let ussdString = '';
-  if (type === 'transfer') ussdString = `*999*${amount}*${account}#`;
-  else if (type === 'airtime') ussdString = `*999*${amount}#`;
-  else return;
-
-  const encodedUssd = ussdString.replace('#', '%23');
-
-  Alert.alert(
-    'Network Connection Dropped 📡',
-    `We couldn't reach the server. Would you like to complete this transaction securely offline via USSD?\n\nCode: ${ussdString}`,
-    [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Dial Code',
-        onPress: async () => {
-          if (onDialed) await onDialed();
-          Linking.openURL(`tel:${encodedUssd}`);
-        },
-      },
-    ]
-  );
-};
-
-// ==========================================
+// Never execute an unverified USSD transaction fallback.\n\n// ==========================================
 // IDEMPOTENCY
 // ==========================================
 const IDEMPOTENT_ENDPOINTS = ['/wallet/transfer', '/wallet/billpay', '/wallet/airtime'];
@@ -153,14 +129,14 @@ const extractErrorMessage = (data, fallback) => {
 export const apiGet = async (endpoint) => {
   try {
     const headers = await buildHeaders();
-    devLog(`[API GET] Request: ${endpoint}`);
+    devLog(`[API GET] Request: ${safeEndpointLabel(endpoint)}`);
     const response = await fetch(`${API_URL}${endpoint}`, { headers });
     const data = await response.json().catch(() => ({}));
-    devLog(`[API GET] Response from ${endpoint}:`, redact(data));
+    devLog(`[API GET] Response from ${safeEndpointLabel(endpoint)}:`, redact(data));
     if (!response.ok) throw new Error(extractErrorMessage(data, 'API GET request failed'));
     return data;
   } catch (error) {
-    console.error(`[API GET Error] ${endpoint}:`, error.message);
+    console.error(`[API GET Error] ${safeEndpointLabel(endpoint)}:`, error.message);
     throw error;
   }
 };
@@ -181,18 +157,18 @@ const apiWrite = async (method, endpoint, payload, fallbackConfig, isRetry) => {
 
   try {
     const headers = await buildHeaders();
-    devLog(`[API ${method}] Request: ${endpoint}`, redact(payload));
+    devLog(`[API ${method}] Request: ${safeEndpointLabel(endpoint)}`, redact(payload));
     const response = await fetch(`${API_URL}${endpoint}`, {
       method,
       headers,
       body: JSON.stringify(payload),
     });
     const data = await response.json().catch(() => ({}));
-    devLog(`[API ${method}] Response from ${endpoint}:`, redact(data));
+    devLog(`[API ${method}] Response from ${safeEndpointLabel(endpoint)}:`, redact(data));
     if (!response.ok) throw new Error(extractErrorMessage(data, `API ${method} request failed`));
     return data;
   } catch (error) {
-    console.error(`[API ${method} Error] ${endpoint}:`, error.message);
+    console.error(`[API ${method} Error] ${safeEndpointLabel(endpoint)}:`, error.message);
     if (
       error.name === 'TypeError' ||
       error.message.includes('Network request failed') ||
@@ -208,13 +184,12 @@ const apiWrite = async (method, endpoint, payload, fallbackConfig, isRetry) => {
           payload,
         });
       }
-      if (fallbackConfig) {
-        triggerUssdFallback(fallbackConfig, queuedId ? () => SyncEngine.cancel(queuedId) : null);
-      }
+      // A carrier USSD code is not a verified ZannyPay payout/fulfilment rail.
+      // Never launch a dialer as a substitute for an unconfirmed API operation.
       throw new Error(
         NEVER_QUEUE_FINANCIAL_ENDPOINTS.has(endpoint)
           ? 'Network offline. This financial transaction was not saved or replayed; reconnect and retry it.'
-          : 'Network offline. Attempting USSD fallback.',
+          : 'Network offline. Please reconnect and try again.',
       );
     }
     throw error;
