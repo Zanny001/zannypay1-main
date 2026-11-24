@@ -69,7 +69,14 @@ export function redact(value) {
   const clone = Array.isArray(value) ? [...value] : { ...value };
   for (const key of Object.keys(clone)) {
     const normalizedKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (SENSITIVE_KEY_PARTS.some((part) => normalizedKey.includes(part))) {
+    const isSensitive = SENSITIVE_KEY_PARTS.some((part) =>
+      part === 'secret'
+        ? normalizedKey.includes(part)
+        : normalizedKey === part ||
+          normalizedKey.startsWith(part) ||
+          normalizedKey.endsWith(part),
+    );
+    if (isSensitive) {
       clone[key] = '[redacted]';
     } else if (typeof clone[key] === 'object' && clone[key] !== null) {
       clone[key] = redact(clone[key]);
