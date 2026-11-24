@@ -42,6 +42,7 @@ import AirtimeScreen from '../screens/AirtimeScreen';
 import ProfileInfoScreen from '../screens/ProfileInfoScreen';
 import ProfileInfoFormScreen from '../screens/ProfileInfoFormScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import ServiceStatusScreen from '../screens/ServiceStatusScreen';
 
 // Elite Modules (v4) — advanced fintech engagement
 import SecurityScreen from '../screens/SecurityScreen';
@@ -100,6 +101,7 @@ function MainStack() {
       <Stack.Screen name="ProfileInfo" component={ProfileInfoScreen} options={{ presentation: 'card', animation: 'slide_from_right' }} />
       <Stack.Screen name="ProfileInfoForm" component={ProfileInfoFormScreen} options={{ presentation: 'card', animation: 'slide_from_right' }} />
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ presentation: 'card', animation: 'slide_from_right' }} />
+      <Stack.Screen name="ServiceStatus" component={ServiceStatusScreen} options={{ presentation: 'card', animation: 'slide_from_right' }} />
       <Stack.Screen name="Security" component={SecurityScreen} options={{ presentation: 'card', animation: 'slide_from_right' }} />
       <Stack.Screen name="Statement" component={StatementScreen} options={{ presentation: 'card', animation: 'slide_from_right' }} />
       <Stack.Screen name="Budget" component={BudgetScreen} options={{ presentation: 'card', animation: 'slide_from_right' }} />
