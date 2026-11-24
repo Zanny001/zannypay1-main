@@ -1,6 +1,7 @@
 jest.mock('react-native', () => ({
-  ...jest.requireActual('react-native'),
   Platform: { OS: 'web' },
+  Alert: { alert: jest.fn() },
+  Linking: { openURL: jest.fn() },
 }));
 
 jest.mock('expo-secure-store', () => ({
