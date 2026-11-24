@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Modal, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import GradientButton from './GradientButton';
 import { colors } from '../theme/colors';
 import { useWallet } from '../context/WalletContext';
@@ -88,7 +89,8 @@ export default function FundModal({ visible, onClose }) {
     }
     setPendingReference(result.reference);
     setPendingAmount(parsedAmount);
-    const browserResult = await WebBrowser.openAuthSessionAsync(result.authorizationUrl);
+    const returnUrl = Linking.createURL('payment-complete');
+    const browserResult = await WebBrowser.openAuthSessionAsync(result.authorizationUrl, returnUrl);
     // A browser close/cancel is not proof of payment. Always ask our server
     // to verify the provider transaction before showing a success state.
     if (browserResult?.type === 'cancel' || browserResult?.type === 'dismiss') {
