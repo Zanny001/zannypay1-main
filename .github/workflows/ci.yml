@@ -15,4 +15,13 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm install
+      - name: Capture dependency audit report
+        if: always()
+        run: npm audit --json > npm-audit.json || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mobile-npm-audit
+          path: npm-audit.json
+          if-no-files-found: ignore
       - run: npm test -- --runInBand
