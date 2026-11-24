@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Modal, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
@@ -14,13 +14,28 @@ const money = (value) => `₦${Number(value || 0).toLocaleString('en-NG', { maxi
 
 export default function FundModal({ visible, onClose }) {
   const { alert } = useAlert();
-  const { fundWallet, verifyFunding, syncWallet } = useWallet();
+  const { fundWallet, verifyFunding, getPendingFundingAttempt, syncWallet } = useWallet();
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [pendingReference, setPendingReference] = useState(null);
   const [pendingAmount, setPendingAmount] = useState(null);
   const [statusMessage, setStatusMessage] = useState('');
+
+  useEffect(() => {
+    if (!visible) return undefined;
+    let active = true;
+    getPendingFundingAttempt().then((attempt) => {
+      if (!active || !attempt) return;
+      setAmount(attempt.reference ? '' : String(attempt.amount));
+      setPendingAmount(attempt.amount);
+      setPendingReference(attempt.reference);
+      if (attempt.reference) {
+        setStatusMessage('A previous funding attempt is awaiting confirmation. Check its status before starting another payment.');
+      }
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [visible, getPendingFundingAttempt]);
 
   const parsedAmount = Number(amount);
   const validAmount = Number.isFinite(parsedAmount) && parsedAmount >= 100 && parsedAmount <= 10000000 && Math.round(parsedAmount * 100) === parsedAmount * 100;
