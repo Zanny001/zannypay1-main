@@ -120,45 +120,52 @@ export default function TransferScreen({ navigation, route }) {
   // accounts. Internal ZannyPay recipients continue using the user lookup.
   // A transfer must not proceed to a bank unless this verification succeeds.
   useEffect(() => {
+    let active = true;
     setResolvedRecipient(null);
     setBankLookupError(null);
+    setResolving(false);
     if (resolveDebounceRef.current) clearTimeout(resolveDebounceRef.current);
 
     const cleaned = (account || '').trim();
     if (tab === 'bank') {
-      if (cleaned.length !== 10 || !bankCode) return;
+      if (cleaned.length !== 10 || !bankCode) return () => { active = false; };
       resolveDebounceRef.current = setTimeout(async () => {
-        setResolving(true);
+        if (active) setResolving(true);
         try {
           const result = await apiGet(
             `/wallet/resolve-bank-account?accountNumber=${encodeURIComponent(cleaned)}&bankCode=${encodeURIComponent(bankCode)}`,
           );
-          setResolvedRecipient({
-            name: result.accountName,
-            accountNumber: result.accountNumber,
-            bankName: result.bankName,
-            verified: result.verified === true,
-          });
+          if (active) {
+            setResolvedRecipient({
+              name: result.accountName,
+              accountNumber: result.accountNumber,
+              bankName: result.bankName,
+              verified: result.verified === true,
+            });
+          }
         } catch (error) {
-          setBankLookupError(error.message || 'Could not verify this bank account.');
+          if (active) setBankLookupError(error.message || 'Could not verify this bank account.');
         } finally {
-          setResolving(false);
+          if (active) setResolving(false);
         }
       }, 500);
     } else {
-      if (cleaned.length < 10) return;
+      if (cleaned.length < 10) return () => { active = false; };
       resolveDebounceRef.current = setTimeout(async () => {
-        setResolving(true);
+        if (active) setResolving(true);
         try {
           const result = await resolveRecipient(cleaned);
-          if (result.ok) setResolvedRecipient(result.recipient);
+          if (active && result.ok) setResolvedRecipient(result.recipient);
         } finally {
-          setResolving(false);
+          if (active) setResolving(false);
         }
       }, 500);
     }
 
-    return () => clearTimeout(resolveDebounceRef.current);
+    return () => {
+      active = false;
+      clearTimeout(resolveDebounceRef.current);
+    };
   }, [account, bankCode, tab, resolveRecipient]);
 
   useEffect(() => {
@@ -264,6 +271,8 @@ export default function TransferScreen({ navigation, route }) {
     const res = await transferMoney({
       recipientAccount: account,
       bank: tab === 'zanny' ? 'ZannyPay' : bank,
+      bankCode: tab === 'bank' ? bankCode : undefined,
+      recipientName: resolvedRecipient?.name,
       amount,
       note,
       pin,
