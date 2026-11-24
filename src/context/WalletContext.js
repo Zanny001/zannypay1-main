@@ -434,13 +434,32 @@ export function WalletProvider({ children }) {
     }
   }, [syncWallet]);
 
+  const fundingAttemptRef = useRef(null);
   const fundWallet = useCallback(async (amount) => {
     try {
-      const res = await apiPost('/wallet/fund', { amount: parseFloat(amount) });
-      if (res && res.success) {
+      const normalizedAmount = Number(amount);
+      if (!fundingAttemptRef.current || fundingAttemptRef.current.amount !== normalizedAmount) {
+        fundingAttemptRef.current = {
+          amount: normalizedAmount,
+          idempotencyKey: generateIdempotencyKey(),
+        };
+      }
+      const res = await apiPost('/wallet/fund', {
+        amount: normalizedAmount,
+        idempotencyKey: fundingAttemptRef.current.idempotencyKey,
+      });
+      if (res?.status === 'completed') {
+        fundingAttemptRef.current = null;
+        return { ok: true, completed: true, reference: res.reference };
+      }
+      if (res?.status === 'pending') {
+        return { ok: false, pending: true, reference: res.reference, error: res.message || 'This payment is still being processed.' };
+      }
+      if (res?.success && res.authorizationUrl) {
         return { ok: true, authorizationUrl: res.authorizationUrl, reference: res.reference };
       }
-      return { ok: false, error: res?.error || 'Funding request failed.' };
+      if (res?.status === 'failed') fundingAttemptRef.current = null;
+      return { ok: false, error: res?.message || res?.error || 'Funding request failed.' };
     } catch (err) {
       return { ok: false, error: err.message };
     }
