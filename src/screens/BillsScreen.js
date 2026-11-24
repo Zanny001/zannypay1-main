@@ -11,11 +11,20 @@ import { formatCurrency } from '../utils/format';
 import { useAlert } from '../context/AlertContext';
 import FadeInView from '../components/FadeInView';
 
+// These categories are visible as a product roadmap, not as live billers.
+ // The backend deliberately fails closed until a contracted biller can confirm
+ // fulfilment. Do not collect a PIN or debit a wallet for an unavailable service.
+const BILL_PAYMENTS_LIVE = false;
+
 const CATEGORIES = [
   { key: 'electricity', label: 'Electricity', icon: 'flash', color: '#F59E0B' },
   { key: 'tv', label: 'TV Subscription', icon: 'tv', color: '#8B5CF6' },
   { key: 'water', label: 'Water', icon: 'water', color: '#0EA5E9' },
   { key: 'internet', label: 'Internet', icon: 'globe', color: '#0E9F6E' },
+  { key: 'education', label: 'Education', icon: 'school', color: '#D97706' },
+  { key: 'transport', label: 'Transport', icon: 'bus', color: '#64748B' },
+  { key: 'insurance', label: 'Insurance', icon: 'shield-checkmark', color: '#0F766E' },
+  { key: 'waste', label: 'Waste & Sanitation', icon: 'leaf', color: '#65A30D' },
 ];
 
 const PROVIDERS = {
@@ -51,6 +60,10 @@ export default function BillsScreen({ navigation, route }) {
   };
 
   const openPinModal = () => {
+    if (!BILL_PAYMENTS_LIVE) {
+      alert('Bill payments coming soon', 'ZannyPay is preparing verified electricity, TV, water and other bill-payment connections. Your wallet will not be charged until a live provider is connected.', null, { type: 'info' });
+      return;
+    }
     if (!provider || !amount || !reference) {
       alert('Missing details', 'Please select a provider, then enter your account/meter number and amount.', null, { type: 'warning' });
       return;
@@ -109,20 +122,37 @@ export default function BillsScreen({ navigation, route }) {
             </View>
             <View style={{ flex: 1, marginLeft: 14 }}>
               <Text style={[styles.airtimeTitle, { color: theme.text }]}>Airtime & Data</Text>
-              <Text style={[styles.airtimeSub, { color: theme.textMuted }]}>Top up any network instantly</Text>
+              <Text style={[styles.airtimeSub, { color: theme.textMuted }]}>Airtime and data top-ups · Coming soon</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
           </TouchableOpacity>
 
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>Utilities</Text>
+          <View style={[styles.availabilityCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Ionicons name="construct-outline" size={20} color={theme.primary} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.availabilityTitle, { color: theme.text }]}>Bill payments are being prepared</Text>
+              <Text style={[styles.availabilityText, { color: theme.textMuted }]}>
+                Provider verification and secure fulfilment are still in progress. These services are not accepting payments yet.
+              </Text>
+            </View>
+          </View>
+
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>Utilities · Coming soon</Text>
           <View style={styles.grid}>
             {CATEGORIES.map((c, idx) => (
               <FadeInView key={c.key} index={idx} style={styles.gridItemWrap}>
-                <PressableScale style={[styles.gridItem, { backgroundColor: theme.surface }]} onPress={() => setCategory(c.key)}>
+                <PressableScale style={[styles.gridItem, { backgroundColor: theme.surface, opacity: 0.78 }]} onPress={() => {
+                  if (!BILL_PAYMENTS_LIVE) {
+                    alert('Coming soon', `${c.label} payments will be enabled after a verified biller connection is live.`, null, { type: 'info' });
+                    return;
+                  }
+                  setCategory(c.key);
+                }}>
                   <View style={[styles.categoryIconWrap, { backgroundColor: `${c.color}20` }]}>
                     <Ionicons name={c.icon} size={24} color={c.color} />
                   </View>
                   <Text style={[styles.gridLabel, { color: theme.text }]}>{c.label}</Text>
+                  <Text style={[styles.comingSoonLabel, { color: theme.textMuted }]}>Coming soon</Text>
                 </PressableScale>
               </FadeInView>
             ))}
@@ -248,6 +278,10 @@ const styles = StyleSheet.create({
   gridItem: { alignItems: 'center', borderRadius: 18, paddingVertical: 20 },
   categoryIconWrap: { width: 56, height: 56, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   gridLabel: { fontSize: 13, textAlign: 'center', fontWeight: '600' },
+  comingSoonLabel: { fontSize: 10, fontWeight: '700', marginTop: 5, textTransform: 'uppercase', letterSpacing: 0.5 },
+  availabilityCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, borderWidth: 1, borderRadius: 16, padding: 16, marginBottom: 24 },
+  availabilityTitle: { fontSize: 14, fontWeight: '800', marginBottom: 5 },
+  availabilityText: { fontSize: 12, lineHeight: 18 },
   scrollContent: { padding: 24, paddingTop: 10 },
   label: { fontSize: 13, fontWeight: '600', marginBottom: 8, marginTop: 16 },
   providerRow: { flexDirection: 'row', flexWrap: 'wrap' },
