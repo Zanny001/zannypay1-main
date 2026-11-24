@@ -374,7 +374,7 @@ export default function TransferScreen({ navigation, route }) {
           onChangeText={(value) => {
             setResolvedRecipient(null);
             setBankLookupError(null);
-            setAccount(value.replace(/\\D/g, '').slice(0, tab === 'bank' ? 10 : 11));
+            setAccount(value.replace(/\D/g, '').slice(0, tab === 'bank' ? 10 : 11));
           }}
           maxLength={tab === 'bank' ? 10 : 11}
         />
