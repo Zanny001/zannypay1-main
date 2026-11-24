@@ -7,6 +7,7 @@ This is a source-level review of the supplied mobile v19 Ultra, admin v10 Ultra,
 ## Confirmed high-priority findings in the supplied archives
 - Mobile `src/services/SyncEngine.js`: queue writes require serialized read/modify/write operations to prevent concurrent enqueue/cancel operations from overwriting one another. The supplied archive includes a mutation queue and concurrent-enqueue regression test.
 - Mobile certificate pinning: the supplied package makes pinning optional and can fail open when native support or pins are missing. Production TLS pinning is not established by source configuration alone; integrate native support, validate primary and backup SPKI pins, and fail closed according to a tested production policy.\n- Mobile web authentication: the supplied API client stored bearer tokens in browser `localStorage`, making them accessible to scripts executing in the origin. The engineering branch now fails closed for browser token storage and removes legacy tokens; web sign-in remains unavailable until an httpOnly-cookie BFF is implemented.
+- Mobile diagnostic logging: the original redactor only matched exact sensitive key names, so compound fields such as `accessToken`, `transaction_pin`, `emailAddress` and `phoneNumber` could be logged. The engineering branch now recursively redacts sensitive key fragments and includes regression coverage.
 - Mobile virtual cards, developer console, and rewards: the supplied README/source describe demo or illustrative functionality and local rewards state. These must not be represented as issued card products, production developer tooling, or authoritative server-side rewards.
 - Backend key rotation: the supplied archive's paginated rotation sweep must enforce cursor progress to avoid a non-terminating maintenance run. The supplied archive adds a strict progress check and regression test.
 - Backend KYC and sanctions: the supplied modules wire mock providers; the mock KYC provider returns a passing liveness result. Production onboarding requires real contracted providers and documented manual-review handling.
@@ -25,7 +26,7 @@ This is a source-level review of the supplied mobile v19 Ultra, admin v10 Ultra,
 
 ### Mobile
 1. Validate native TLS pinning with primary and backup keys and a tested certificate-rotation plan.\n2. Implement a web BFF using Secure, httpOnly, SameSite cookies before enabling browser sign-in; the current web token path is intentionally fail-closed.
-3. Verify secure storage, screenshot/app-switcher protection, deep-link validation, device integrity policy, privacy-safe analytics and remote session revocation.
+3. Verify secure storage, screenshot/app-switcher protection, deep-link validation, device integrity policy, privacy-safe analytics and remote session revocation. Keep recursive sensitive-field log redaction covered by tests.
 4. Prove idempotent money movement across timeouts, offline replay, app restarts and webhook races.
 5. Replace or clearly gate demo cards, local rewards and illustrative developer tooling.
 6. Add device-matrix, accessibility, release-signing, SBOM and OTA-governance checks.
