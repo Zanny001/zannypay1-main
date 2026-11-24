@@ -89,22 +89,24 @@ export default function LoanScreen({ navigation }) {
       </View>
 
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-        <FadeInView>
-          <View style={[styles.offerCard, { backgroundColor: theme.surfaceAlt }]}>
-            <View style={[styles.offerBadge, { backgroundColor: theme.accent }]}>
-              <Text style={styles.offerBadgeText}>Your Flexi Credit Limit</Text>
-            </View>
-            <View style={styles.offerContent}>
-              <View style={styles.offerHeader}>
-                <MaterialCommunityIcons name="wallet-giftcard" size={22} color={theme.success} />
-                <Text style={[styles.offerTitle, { color: theme.text }]}>{formatCurrency(creditLimit)}</Text>
+        {creditLimit > 0 && (
+          <FadeInView>
+            <View style={[styles.offerCard, { backgroundColor: theme.surfaceAlt }]}>
+              <View style={[styles.offerBadge, { backgroundColor: theme.accent }]}>
+                <Text style={styles.offerBadgeText}>Your approved Flexi Credit Limit</Text>
               </View>
-              <Text style={[styles.periodText, { color: theme.textMuted }]}>
-                Based on your ZannyPay wallet activity. Flat 5% fee, repay anytime before the due date.
-              </Text>
+              <View style={styles.offerContent}>
+                <View style={styles.offerHeader}>
+                  <MaterialCommunityIcons name="wallet-giftcard" size={22} color={theme.success} />
+                  <Text style={[styles.offerTitle, { color: theme.text }]}>{formatCurrency(creditLimit)}</Text>
+                </View>
+                <Text style={[styles.periodText, { color: theme.textMuted }]}>
+                  This limit was supplied by ZannyPay's lending eligibility service.
+                </Text>
+              </View>
             </View>
-          </View>
-        </FadeInView>
+          </FadeInView>
+        )}
 
         {hasActiveLoan ? (
           <FadeInView delay={80}>
@@ -126,7 +128,7 @@ export default function LoanScreen({ navigation }) {
               <GradientButton title="Repay Now" onPress={() => setRepayVisible(true)} style={{ marginTop: 18 }} />
             </View>
           </FadeInView>
-        ) : (
+        ) : creditLimit > 0 ? (
           <FadeInView delay={80}>
             <View style={[styles.secondaryCard, { backgroundColor: theme.surface, marginTop: 20 }]}>
               <Text style={[styles.cardTitle, { color: theme.text, marginBottom: 6 }]}>Get Instant Cash</Text>
@@ -180,6 +182,16 @@ export default function LoanScreen({ navigation }) {
               </View>
 
               <GradientButton title="Borrow Now" onPress={handleApply} loading={applying} variant="gold" style={{ marginTop: 20 }} />
+            </View>
+          </FadeInView>
+        ) : (
+          <FadeInView delay={80}>
+            <View style={[styles.secondaryCard, { backgroundColor: theme.surface, marginTop: 20, alignItems: 'center' }]}>
+              <MaterialCommunityIcons name="shield-lock-outline" size={34} color={theme.textMuted} />
+              <Text style={[styles.cardTitle, { color: theme.text, marginTop: 12, textAlign: 'center' }]}>Lending is not available yet</Text>
+              <Text style={[styles.periodText, { color: theme.textMuted, marginTop: 8, textAlign: 'center' }]}>
+                We are completing our approved lending-partner and funding integrations. No borrowing limit is being advertised until a real eligibility decision is available.
+              </Text>
             </View>
           </FadeInView>
         )}
