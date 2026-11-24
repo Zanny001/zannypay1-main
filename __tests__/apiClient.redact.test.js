@@ -26,6 +26,7 @@ describe('sensitive log redaction', () => {
         phoneNumber: '+2348000000000',
         bvn: '12345678901',
         safeLabel: 'Wallet',
+        shippingAddress: '12 Market Road',
       },
       items: [{ cardNumber: '4111111111111111', amount: 2500 }],
     });
@@ -38,6 +39,7 @@ describe('sensitive log redaction', () => {
         phoneNumber: '[redacted]',
         bvn: '[redacted]',
         safeLabel: 'Wallet',
+        shippingAddress: '12 Market Road',
       },
       items: [{ cardNumber: '[redacted]', amount: 2500 }],
     });
