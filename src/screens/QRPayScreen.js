@@ -59,7 +59,7 @@ function MyCodeTab({ user }) {
       return;
     }
     try {
-      const uri = await captureRef(codeCardRef, { format: 'png', quality: 1 });
+      const uri = await captureRef(codeCardRef.current, { format: 'png', quality: 1 });
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, {
           mimeType: 'image/png',
