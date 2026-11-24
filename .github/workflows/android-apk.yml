@@ -41,14 +41,27 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: npx eas-cli build --platform android --profile preview --non-interactive --wait --json > eas-build.json
 
-      - name: Publish APK link in workflow summary
-        if: success()
+      - name: Download the built APK
         run: |
           BUILD_URL="$(node -e "const b=require('./eas-build.json'); const x=Array.isArray(b)?b[0]:b; process.stdout.write(x?.artifacts?.buildUrl || '')")"
           if [ -z "$BUILD_URL" ]; then
             echo "::error::EAS completed without returning an APK URL."
             exit 1
           fi
+          curl --fail --location "$BUILD_URL" --output ZannyPay-1.1.0.apk
+
+      - name: Attach APK to this GitHub Actions run
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZannyPay-Android-APK
+          path: ZannyPay-1.1.0.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish APK links in workflow summary
+        run: |
+          BUILD_URL="$(node -e "const b=require('./eas-build.json'); const x=Array.isArray(b)?b[0]:b; process.stdout.write(x?.artifacts?.buildUrl || '')")"
           echo "## ZannyPay Android APK" >> "$GITHUB_STEP_SUMMARY"
-          echo "[Download the installable APK]($BUILD_URL)" >> "$GITHUB_STEP_SUMMARY"
+          echo "The APK is attached to this GitHub Actions run as the `ZannyPay-Android-APK` artifact." >> "$GITHUB_STEP_SUMMARY"
+          echo "[Open EAS build details]($BUILD_URL)" >> "$GITHUB_STEP_SUMMARY"
           echo "Build source: $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
