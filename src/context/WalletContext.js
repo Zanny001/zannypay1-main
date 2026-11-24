@@ -518,6 +518,20 @@ export function WalletProvider({ children }) {
     }
   }, [clearFundingAttempt, user?.id]);
 
+  const getPendingFundingAttempt = useCallback(async () => {
+    let attempt = fundingAttemptRef.current || await loadJSON(STORAGE_KEYS.FUNDING_ATTEMPT, null);
+    if (!attempt) return null;
+    // Never surface a pending payment belonging to another signed-in user,
+    // or an old unscoped attempt from before account binding was introduced.
+    if (!attempt.userId || attempt.userId !== user?.id) {
+      fundingAttemptRef.current = null;
+      await saveJSON(STORAGE_KEYS.FUNDING_ATTEMPT, null);
+      return null;
+    }
+    fundingAttemptRef.current = attempt;
+    return { amount: Number(attempt.amount), reference: attempt.reference || null };
+  }, [user?.id]);
+
   const verifyFunding = useCallback(async (reference) => {
     try {
       const res = await apiGet(`/wallet/verify/${encodeURIComponent(reference)}`);
@@ -1029,7 +1043,7 @@ export function WalletProvider({ children }) {
   const value = {
     loading, onboarded, completeOnboarding, user, isAuthenticated, token,
     signup, login, logout, loginWithBiometricToken, balance, transactions,
-    transferMoney, payBill, buyAirtime, fetchVtpassServices, fetchVtpassVariations, verifyVtpassCustomer, purchaseVtpassBill, fetchVtpassBillTransaction, fundWallet, verifyFunding, syncWallet, recordInvoice,
+    transferMoney, payBill, buyAirtime, fetchVtpassServices, fetchVtpassVariations, verifyVtpassCustomer, purchaseVtpassBill, fetchVtpassBillTransaction, fundWallet, verifyFunding, getPendingFundingAttempt, syncWallet, recordInvoice,
     savingsGoals, createSavingsGoal, depositToSavings, withdrawFromSavings, savingsApy, lastInterestEarned,
     loan, creditLimit, requestLoan, repayLoan,
     isBalanceHidden, toggleBalanceHidden,
