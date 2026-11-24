@@ -302,9 +302,9 @@ export function WalletProvider({ children }) {
     if (user?.phone) await BiometricAuth.clearFor(user.phone);
   }, [user]);
 
-  const transferMoney = useCallback(async ({ recipientAccount, amount, pin, bank, note, recipientName }) => {
+  const transferMoney = useCallback(async ({ recipientAccount, amount, pin, bank, bankCode, note, recipientName }) => {
     try {
-      const payload = { recipientAccount, amount: parseFloat(amount), pin, bank, note, recipientName };
+      const payload = { recipientAccount, amount: parseFloat(amount), pin, bank, bankCode, note, recipientName };
       const res = await apiPost('/wallet/transfer', payload, { type: 'transfer', amount, account: recipientAccount });
       if (res && res.success) {
         const data = await syncWallet();
