@@ -100,7 +100,7 @@ const safeEndpointLabel = (endpoint) => String(endpoint || '').split('?')[0];
 // ==========================================
 // IDEMPOTENCY
 // ==========================================
-const IDEMPOTENT_ENDPOINTS = ['/wallet/transfer', '/wallet/billpay', '/wallet/airtime'];
+const IDEMPOTENT_ENDPOINTS = ['/wallet/transfer', '/wallet/billpay', '/wallet/airtime', '/wallet/bill-purchase', '/wallet/bill-verify'];
 // Financial mutations can contain transaction PINs and must never be persisted
 // in the plaintext AsyncStorage retry queue. The caller must retry online after
 // reconnecting; idempotency keys still protect an explicitly retried request.
