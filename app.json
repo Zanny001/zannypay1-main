@@ -3,15 +3,15 @@
     "name": "ZannyPay",
     "slug": "zannypay",
     "scheme": "zannypay",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "sdkVersion": "54.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0D2261"
+      "backgroundColor": "#031311"
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
@@ -24,9 +24,10 @@
     },
     "android": {
       "package": "com.zannypay.app",
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0D2261"
+        "backgroundColor": "#031311"
       },
       "permissions": ["CAMERA"]
     },
@@ -35,7 +36,7 @@
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#0D2261"
+          "color": "#00D99A"
         }
       ],
       [
@@ -48,6 +49,11 @@
     "web": {
       "bundler": "metro",
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "34764801-f60a-4128-b8a0-393da61c1d35"
+      }
     }
   }
 }

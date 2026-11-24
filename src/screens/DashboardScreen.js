@@ -241,7 +241,7 @@ export default function DashboardScreen({ navigation }) {
         )}
 
         {/* BALANCE CARD */}
-        <LinearGradient colors={['#2A1F45', '#1A1525']} style={styles.balanceCard}>
+        <LinearGradient colors={['#063F32', '#031A17', '#020D0C']} style={styles.balanceCard}>
           <View style={styles.balanceTopRow}>
             <Text style={styles.balanceLabel}>Total Balance</Text>
             <TouchableOpacity onPress={toggleBalanceHidden} style={styles.eyeIconWrap}>
