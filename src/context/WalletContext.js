@@ -20,7 +20,6 @@ const STORAGE_KEYS = {
   LOCAL_INVOICES: 'zannypay:localInvoices',
 };
 
-const SAVINGS_APY = 0.15;
 const STARTING_BALANCE = 0;
 
 const toNumber = (value) => {
@@ -47,7 +46,7 @@ export function WalletProvider({ children }) {
   const [transactions, setTransactions] = useState([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [savingsGoals, setSavingsGoals] = useState([]);
-  const [savingsApy, setSavingsApy] = useState(SAVINGS_APY);
+  const [savingsApy, setSavingsApy] = useState(0);
   const [lastInterestEarned, setLastInterestEarned] = useState(null);
   const [loan, setLoan] = useState(null);
   const [isBalanceHidden, setIsBalanceHidden] = useState(false);
