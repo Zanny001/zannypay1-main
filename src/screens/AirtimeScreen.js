@@ -215,7 +215,7 @@ export default function AirtimeScreen({ navigation }) {
           </>
         )}
 
-        <GradientButton title="Coming Soon" onPress={handleTopup} style={{ marginTop: 20 }} />
+        <GradientButton title="Coming Soon" onPress={handleTopup} disabled={!AIRTIME_AND_DATA_LIVE} style={{ marginTop: 20 }} />
       </ScrollView>
 
       {/* PIN Confirmation Modal */}
