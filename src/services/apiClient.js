@@ -95,7 +95,9 @@ function devLog(...args) {
 // contain full bank account numbers, which are sensitive personal data.
 const safeEndpointLabel = (endpoint) => String(endpoint || '').split('?')[0];
 
-// Never execute an unverified USSD transaction fallback.\n\n// ==========================================
+// Never execute an unverified USSD transaction fallback.
+
+// ==========================================
 // IDEMPOTENCY
 // ==========================================
 const IDEMPOTENT_ENDPOINTS = ['/wallet/transfer', '/wallet/billpay', '/wallet/airtime'];
