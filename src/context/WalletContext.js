@@ -516,7 +516,7 @@ export function WalletProvider({ children }) {
       // Keep the same idempotency key after an ambiguous network failure.
       return { ok: false, error: err.message };
     }
-  }, [clearFundingAttempt]);
+  }, [clearFundingAttempt, user?.id]);
 
   const verifyFunding = useCallback(async (reference) => {
     try {
