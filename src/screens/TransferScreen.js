@@ -21,16 +21,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useWallet } from '../context/WalletContext';
 import { formatCurrency, formatDate } from '../utils/format';
 import { useAlert } from '../context/AlertContext';
-
-const BANK_LIST = [
-  'GTBank', 'Access Bank', 'OPay', 'Kuda MFB', 'Zenith Bank', 'First Bank Of Nigeria',
-  'Wema Bank', 'Union Bank Of Nigeria', 'Sterling Bank', 'Moniepoint', 'UNITED BANK FOR AFRICA',
-  'Access Bank (Diamond)', 'First City Monument Bank', 'Ecobank Nigeria', 'UNITY BANK PLC',
-  'Stanbic IBTC Bank', 'Fidelity Bank', 'Polaris Bank', 'Providus Bank', 'STANDARD CHARTERED BANK',
-  'VFD MFB', 'Paga', "ACCESS Y'ello & Beta", 'Fairmoney MFB', 'Sparkle', 'CARBON',
-  'TITAN TRUST BANK', '9 PSB', 'MoMo PSB', 'SmartCash PSB', 'FETS', 'Taj Bank', 'Keystone Bank',
-  'Jaiz Bank', 'Globus Bank', 'LOTUS BANK', 'NPF MICROFINANCE BANK',
-];
+import { apiGet } from '../services/apiClient';
 
 const QUICK_AMOUNTS = [500, 1000, 2000, 5000, 10000];
 
@@ -45,6 +36,9 @@ export default function TransferScreen({ navigation, route }) {
 
   const [account, setAccount] = useState('');
   const [bank, setBank] = useState('');
+  const [bankCode, setBankCode] = useState('');
+  const [banks, setBanks] = useState([]);
+  const [bankLookupError, setBankLookupError] = useState(null);
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const [pin, setPin] = useState('');
@@ -101,28 +95,78 @@ export default function TransferScreen({ navigation, route }) {
     return items;
   }, [transactions]);
 
-  // Live beneficiary-name resolution — as the user finishes typing an
-  // account number or phone number, confirm who they're actually about to
-  // pay, the same way real banking apps resolve a beneficiary before
-  // letting you send money.
+  // Load the authoritative Nigerian bank directory from Paystack. Bank
+  // codes are provider identifiers; display labels must never be used as
+  // substitutes when resolving an account.
   useEffect(() => {
+    let active = true;
+    apiGet('/wallet/banks')
+      .then((response) => {
+        if (active) setBanks(Array.isArray(response?.banks) ? response.banks : []);
+      })
+      .catch((error) => {
+        if (active) setBankLookupError(error.message || 'Bank directory unavailable.');
+      });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!bank || bankCode || !banks.length) return;
+    const match = banks.find((item) => item.name.toLowerCase() === bank.toLowerCase());
+    if (match) setBankCode(match.code);
+  }, [bank, bankCode, banks]);
+
+  // Resolve the destination name through Paystack for external bank
+  // accounts. Internal ZannyPay recipients continue using the user lookup.
+  // A transfer must not proceed to a bank unless this verification succeeds.
+  useEffect(() => {
+    let active = true;
     setResolvedRecipient(null);
+    setBankLookupError(null);
+    setResolving(false);
     if (resolveDebounceRef.current) clearTimeout(resolveDebounceRef.current);
 
     const cleaned = (account || '').trim();
-    if (cleaned.length < 10) return;
+    if (tab === 'bank') {
+      if (cleaned.length !== 10 || !bankCode) return () => { active = false; };
+      resolveDebounceRef.current = setTimeout(async () => {
+        if (active) setResolving(true);
+        try {
+          const result = await apiGet(
+            `/wallet/resolve-bank-account?accountNumber=${encodeURIComponent(cleaned)}&bankCode=${encodeURIComponent(bankCode)}`,
+          );
+          if (active) {
+            setResolvedRecipient({
+              name: result.accountName,
+              accountNumber: result.accountNumber,
+              bankName: result.bankName,
+              verified: result.verified === true,
+            });
+          }
+        } catch (error) {
+          if (active) setBankLookupError(error.message || 'Could not verify this bank account.');
+        } finally {
+          if (active) setResolving(false);
+        }
+      }, 500);
+    } else {
+      if (cleaned.length < 10) return () => { active = false; };
+      resolveDebounceRef.current = setTimeout(async () => {
+        if (active) setResolving(true);
+        try {
+          const result = await resolveRecipient(cleaned);
+          if (active && result.ok) setResolvedRecipient(result.recipient);
+        } finally {
+          if (active) setResolving(false);
+        }
+      }, 500);
+    }
 
-    resolveDebounceRef.current = setTimeout(async () => {
-      setResolving(true);
-      const res = await resolveRecipient(cleaned);
-      setResolving(false);
-      // A miss here is completely normal for external-bank account numbers
-      // (tab === 'bank'), so we stay silent rather than showing an error.
-      if (res.ok) setResolvedRecipient(res.recipient);
-    }, 500);
-
-    return () => clearTimeout(resolveDebounceRef.current);
-  }, [account, resolveRecipient]);
+    return () => {
+      active = false;
+      clearTimeout(resolveDebounceRef.current);
+    };
+  }, [account, bankCode, tab, resolveRecipient]);
 
   useEffect(() => {
     Animated.spring(tabAnim, {
@@ -161,8 +205,8 @@ export default function TransferScreen({ navigation, route }) {
     }
   }, [route?.params]);
 
-  const filteredBanks = BANK_LIST.filter((b) =>
-    b.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredBanks = banks.filter((item) =>
+    item.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const savedForCurrentTab = useMemo(() => {
@@ -173,6 +217,7 @@ export default function TransferScreen({ navigation, route }) {
   const handleTabSwitch = (newTab) => {
     setTab(newTab);
     setSubTab('recent');
+    if (newTab !== 'bank') setBankCode('');
   };
 
   const focusAmountField = () => {
@@ -184,6 +229,7 @@ export default function TransferScreen({ navigation, route }) {
     setTab(item.bank ? 'bank' : 'zanny');
     setAccount(item.acc);
     setBank(item.bank || '');
+    setBankCode('');
     focusAmountField();
   };
 
@@ -191,6 +237,7 @@ export default function TransferScreen({ navigation, route }) {
     setTab(item.bank && item.bank !== 'ZannyPay' ? 'bank' : 'zanny');
     setAccount(item.accountNumber);
     setBank(item.bank && item.bank !== 'ZannyPay' ? item.bank : '');
+    setBankCode('');
     focusAmountField();
   };
 
@@ -201,6 +248,20 @@ export default function TransferScreen({ navigation, route }) {
     }
     if (tab === 'bank' && !bank) {
       alert('Missing Info', 'Please select a destination bank.');
+      return;
+    }
+    if (tab === 'bank' && (!resolvedRecipient?.verified || resolving)) {
+      alert('Verify Account', 'Select a bank and enter a valid 10-digit account number. Wait for the account name to be confirmed before continuing.');
+      return;
+    }
+    // Do not collect a transaction PIN or submit an external payout until
+    // the backend has a verified disbursement provider. The account-name
+    // lookup is live, but name resolution alone is not a money-transfer rail.
+    if (tab === 'bank') {
+      alert(
+        'Bank Transfers Unavailable',
+        'The recipient account can be verified, but outgoing bank transfers are not yet connected to a live payout provider. You can still send money to another ZannyPay account.',
+      );
       return;
     }
     if (parseFloat(amount) > balance) {
@@ -220,6 +281,8 @@ export default function TransferScreen({ navigation, route }) {
     const res = await transferMoney({
       recipientAccount: account,
       bank: tab === 'zanny' ? 'ZannyPay' : bank,
+      bankCode: tab === 'bank' ? bankCode : undefined,
+      recipientName: resolvedRecipient?.name,
       amount,
       note,
       pin,
@@ -309,13 +372,19 @@ export default function TransferScreen({ navigation, route }) {
           keyboardType="number-pad"
           value={account}
           onChangeText={setAccount}
-          maxLength={11}
+          maxLength={tab === 'bank' ? 10 : 11}
         />
 
         {resolving && (
           <View style={styles.resolveBanner}>
             <ActivityIndicator size="small" color={theme.textMuted} />
             <Text style={[styles.resolveText, { color: theme.textMuted }]}>Looking up recipient…</Text>
+          </View>
+        )}
+        {!resolving && bankLookupError && tab === 'bank' && (
+          <View style={[styles.resolveBanner, { backgroundColor: `${theme.danger || '#dc2626'}15` }]}>
+            <Ionicons name="alert-circle" size={16} color={theme.danger || '#dc2626'} />
+            <Text style={[styles.resolveText, { color: theme.danger || '#dc2626' }]}>{bankLookupError}</Text>
           </View>
         )}
         {!resolving && resolvedRecipient && (
@@ -464,21 +533,22 @@ export default function TransferScreen({ navigation, route }) {
 
           <FlatList
             data={filteredBanks}
-            keyExtractor={(item, index) => index.toString()}
+            keyExtractor={(item) => item.code}
             showsVerticalScrollIndicator={false}
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={[styles.modalBankRow, { borderBottomColor: theme.surface }]}
                 onPress={() => {
-                  setBank(item);
+                  setBank(item.name);
+                  setBankCode(item.code);
                   setBankModalVisible(false);
                   setSearchQuery('');
                 }}
               >
                 <View style={[styles.modalBankIcon, { backgroundColor: theme.surfaceAlt }]}>
-                  <Text style={[styles.modalBankIconText, { color: theme.text }]}>{item.charAt(0)}</Text>
+                  <Text style={[styles.modalBankIconText, { color: theme.text }]}>{item.name.charAt(0)}</Text>
                 </View>
-                <Text style={[styles.modalBankText, { color: theme.text }]}>{item}</Text>
+                <Text style={[styles.modalBankText, { color: theme.text }]} >{item.name}</Text>
               </TouchableOpacity>
             )}
             ListEmptyComponent={() => (

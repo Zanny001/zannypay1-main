@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { AppState } from 'react-native';
 import { saveJSON, loadJSON } from '../utils/storage';
-import { apiGet, apiPost, apiPatch, apiDelete, getSavedToken, saveToken, clearToken } from '../services/apiClient';
+import { apiGet, apiPost, apiPatch, apiDelete, getSavedToken, saveToken, clearToken, generateIdempotencyKey } from '../services/apiClient';
 import { logLoginActivity } from '../utils/loginActivity';
 import { SyncEngine } from '../services/SyncEngine';
 import { BiometricAuth } from '../services/biometricAuth';
@@ -61,6 +61,10 @@ export function WalletProvider({ children }) {
   const [beneficiaries, setBeneficiaries] = useState([]);
 
   const localInvoicesRef = useRef([]);
+  const transferAttemptRef = useRef(null);
+  // Keep one idempotency key for an unchanged transfer attempt across a
+  // timeout, lost response or screen remount. Clear it only after success;
+  // changing recipient/amount/bank creates a distinct attempt.
 
   const toggleBalanceHidden = useCallback(async () => {
     setIsBalanceHidden((prev) => {
@@ -302,11 +306,36 @@ export function WalletProvider({ children }) {
     if (user?.phone) await BiometricAuth.clearFor(user.phone);
   }, [user]);
 
-  const transferMoney = useCallback(async ({ recipientAccount, amount, pin, bank, note, recipientName }) => {
+  const transferMoney = useCallback(async ({ recipientAccount, amount, pin, bank, bankCode, note, recipientName, idempotencyKey }) => {
     try {
-      const payload = { recipientAccount, amount: parseFloat(amount), pin, bank, note, recipientName };
+      const fingerprint = JSON.stringify({
+        recipientAccount,
+        amount: parseFloat(amount),
+        bank: bank || null,
+        bankCode: bankCode || null,
+        note: note || null,
+      });
+      const activeAttempt = transferAttemptRef.current;
+      const stableKey = idempotencyKey || (
+        activeAttempt?.fingerprint === fingerprint
+          ? activeAttempt.key
+          : generateIdempotencyKey()
+      );
+      transferAttemptRef.current = { fingerprint, key: stableKey };
+
+      const payload = {
+        recipientAccount,
+        amount: parseFloat(amount),
+        pin,
+        bank,
+        bankCode,
+        note,
+        recipientName,
+        idempotencyKey: stableKey,
+      };
       const res = await apiPost('/wallet/transfer', payload, { type: 'transfer', amount, account: recipientAccount });
       if (res && res.success) {
+        transferAttemptRef.current = null;
         const data = await syncWallet();
         const txn = data?.transactions?.find((t) => t.id === res.transactionId) || null;
         return { ok: true, txn, transactionId: res.transactionId };
