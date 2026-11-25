@@ -13,17 +13,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: yarn
-      - run: yarn install --non-interactive
+      - run: npm install
       - name: Capture dependency audit report
         if: always()
-        run: yarn audit --json > npm-audit.json || true
+        run: npm audit --json > npm-audit.json || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: mobile-npm-audit
           path: npm-audit.json
           if-no-files-found: ignore
-      - run: yarn test --runInBand
+      - run: npm test -- --runInBand
       - name: Validate Android Expo bundle
-        run: yarn expo export --platform android
+        run: npx expo export --platform android
