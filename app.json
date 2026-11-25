@@ -9,7 +9,9 @@
     "userInterfaceStyle": "dark",
     "splash": {
       "resizeMode": "contain",
-      "backgroundColor": "#031311"
+      "backgroundColor": "#031311",
+      "image": "assets/splash.png",
+      "imageWidth": 1
     },
     "assetBundlePatterns": [
       "**/*"
