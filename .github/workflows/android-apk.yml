@@ -23,7 +23,7 @@ jobs:
           node-version: 20
 
       - name: Install dependencies
-        run: npm install
+        run: yarn install --non-interactive
 
       - name: Validate Expo configuration
         run: npx expo config --type public
