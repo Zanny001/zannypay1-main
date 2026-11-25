@@ -7,11 +7,12 @@
     "sdkVersion": "54.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
+    "icon": "assets/icon.png",
     "splash": {
+      "image": "assets/splash-icon.png",
+      "imageWidth": 220,
       "resizeMode": "contain",
-      "backgroundColor": "#031311",
-      "image": "assets/splash.png",
-      "imageWidth": 1
+      "backgroundColor": "#06194A"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -25,10 +26,14 @@
     },
     "android": {
       "package": "com.zannypay.app",
-      "versionCode": 4,
+      "versionCode": 5,
       "permissions": [
         "CAMERA"
-      ]
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "assets/adaptive-icon.png",
+        "backgroundColor": "#06194A"
+      }
     },
     "plugins": [
       [
@@ -45,7 +50,8 @@
       ]
     ],
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "favicon": "assets/favicon.png"
     },
     "extra": {
       "eas": {
