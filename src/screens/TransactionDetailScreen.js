@@ -102,7 +102,7 @@ export default function TransactionDetailScreen({ route, navigation }) {
           .status { text-align: center; color: #D5EAF8; font-size: 14px; margin-bottom: 4px; }
           .date { text-align: center; color: #9AAEC4; font-size: 12px; margin-bottom: 20px; }
           .dashed { border-top: 1px dashed #28516F; margin: 20px 0; }
-          .row { display: flex; justify-content: space-between; margin-bottom: 16px; font-size: 13px; }
+          .row { display: flex; justify-content: space-between; gap: 14px; margin-bottom: 16px; font-size: 13px; overflow-wrap: anywhere; }
           .label { color: #9AAEC4; }
           .value { color: #fff; font-weight: 600; text-align: right; }
           .footer-text { text-align: center; color: #8FB5D2; font-size: 11px; margin-top: 24px; }
@@ -116,7 +116,7 @@ export default function TransactionDetailScreen({ route, navigation }) {
           <div class="date">${escapeHtml(formatDate(transactionTimestamp))}</div>
           <div class="dashed"></div>
           <div class="row"><span class="label">Transaction Type</span><span class="value">${escapeHtml(transactionType)}</span></div>
-          ${!isInvoice ? `<div class="row"><span class="label">Recipient</span><span class="value">${escapeHtml(recipientName)}${recipientBank ? ` (${escapeHtml(recipientBank)})` : ''}</span></div>` : ''}
+          ${!isInvoice ? `<div class="row"><span class="label">Recipient</span><span class="value">${escapeHtml(recipientName)}${recipientBank ? ` (${escapeHtml(recipientBank)})` : ''}</span></div>${recipientAccount ? `<div class="row"><span class="label">Account</span><span class="value">${escapeHtml(recipientAccount)}</span></div>` : ''}` : ''}
           <div class="row"><span class="label">Reference</span><span class="value">${escapeHtml(reference)}</span></div>
           <div class="row"><span class="label">Fee</span><span class="value">${escapeHtml(formatCurrency(fee))}</span></div>
           <div class="row"><span class="label">Payer</span><span class="value">${escapeHtml(user?.name || '')} · ${escapeHtml(user?.accountNumber || '')}</span></div>
@@ -225,7 +225,7 @@ export default function TransactionDetailScreen({ route, navigation }) {
               </Text>
               <View style={[styles.statusBadge, { backgroundColor: `${statusColor}22` }]}>
                 <Ionicons
-                  name={rawStatus === 'failed' ? 'close-circle' : 'checkmark-circle'}
+                  name={normalizedStatus === 'failed' ? 'close-circle' : normalizedStatus === 'pending' ? 'time' : 'checkmark-circle'}
                   size={14}
                   color={statusColor}
                 />
