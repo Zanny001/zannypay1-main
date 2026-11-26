@@ -97,6 +97,7 @@ export default function DashboardScreen({ navigation }) {
   const handleQuickAction = (key) => {
     if (key === 'Fund') return setFundModalVisible(true);
     if (key === 'More') return setMoreModalVisible(true);
+    if (key === 'Data') return navigation.navigate('Airtime', { initialTab: 'Data Bundle' });
     navigation.navigate(key);
   };
 
@@ -300,7 +301,7 @@ export default function DashboardScreen({ navigation }) {
             { key: 'Transfer', icon: 'swap-horizontal', label: 'Transfer' },
             { key: 'Bills', icon: 'receipt-outline', label: 'Pay Bills' },
             { key: 'Airtime', icon: 'phone-portrait-outline', label: 'Airtime' },
-            { key: 'Airtime', icon: 'wifi-outline', label: 'Data' },
+            { key: 'Data', icon: 'wifi-outline', label: 'Data' },
             { key: 'More', icon: 'grid-outline', label: 'More' },
           ].map((action, index) => (
             <TouchableOpacity key={`${action.label}-${index}`} style={styles.serviceShortcut}
