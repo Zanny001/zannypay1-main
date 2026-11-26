@@ -10,6 +10,8 @@ import { formatCurrency, formatDate } from '../utils/format';
 import GradientButton from '../components/GradientButton';
 import FadeInView from '../components/FadeInView';
 
+const escapeHtml = (value) => String(value ?? '').replace(/[&<>\"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#39;' }[char]));
+
 const RANGE_OPTIONS = [
   { label: '7 Days', days: 7 },
   { label: '30 Days', days: 30 },
@@ -48,8 +50,8 @@ export default function StatementScreen({ navigation }) {
         (t) => `
         <tr>
           <td>${formatDate(t.createdAt || t.date)}</td>
-          <td>${t.title || t.category || ''}</td>
-          <td style="text-transform:capitalize">${t.category || ''}</td>
+          <td>${escapeHtml(t.title || t.category || 'Transaction')}</td>
+          <td style="text-transform:capitalize">${escapeHtml(t.category || '—')}</td>
           <td style="text-align:right; color:${t.type === 'credit' ? '#16A34A' : '#DC2626'}">
             ${t.type === 'credit' ? '+' : '-'}${formatCurrency(Math.abs(parseFloat(t.amount)) || 0)}
           </td>
@@ -60,9 +62,9 @@ export default function StatementScreen({ navigation }) {
     return `
       <html>
         <head><meta name="viewport" content="width=device-width, initial-scale=1" /></head>
-        <body style="font-family: -apple-system, Helvetica, Arial, sans-serif; padding: 24px; color: #1A1523;">
-          <h2 style="margin-bottom: 4px;">ZannyPay Account Statement</h2>
-          <p style="color: #847F94; margin-top: 0;">${user?.name || ''} · ${user?.accountNumber || ''}</p>
+        <body style="font-family: -apple-system, Helvetica, Arial, sans-serif; padding: 20px; color: #10243A; overflow-wrap: anywhere;">
+          <h2 style="margin-bottom: 4px; color:#10243A;">ZannyPay Account Statement</h2>
+          <p style="color: #71869B; margin-top: 0;">${escapeHtml(user?.name || 'Account holder')} · ${escapeHtml(user?.accountNumber || '')}</p>
           <p style="color: #847F94; font-size: 13px;">Period: ${range.label} · Generated ${formatDate(new Date().toISOString())}</p>
 
           <div style="display:flex; gap: 20px; margin: 20px 0;">
@@ -70,13 +72,13 @@ export default function StatementScreen({ navigation }) {
             <div><strong style="color:#DC2626;">Money Out:</strong> ${formatCurrency(totals.out)}</div>
           </div>
 
-          <table width="100%" style="border-collapse: collapse; font-size: 13px;">
+          <table width="100%" style="border-collapse: collapse; table-layout: fixed; font-size: 12px; width: 100%;">
             <thead>
               <tr style="border-bottom: 2px solid #ECE9F3; text-align:left;">
-                <th style="padding: 8px 4px;">Date</th>
-                <th style="padding: 8px 4px;">Description</th>
-                <th style="padding: 8px 4px;">Category</th>
-                <th style="padding: 8px 4px; text-align:right;">Amount</th>
+                <th width="18%" style="padding: 8px 4px; text-align:left;">Date</th>
+                <th width="38%" style="padding: 8px 4px; text-align:left;">Description</th>
+                <th width="18%" style="padding: 8px 4px; text-align:left;">Category</th>
+                <th width="26%" style="padding: 8px 4px; text-align:right;">Amount</th>
               </tr>
             </thead>
             <tbody>${rows || '<tr><td colspan="4" style="padding:16px; text-align:center; color:#847F94;">No transactions in this period.</td></tr>'}</tbody>
@@ -165,8 +167,8 @@ const styles = StyleSheet.create({
   rangeChip: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, marginRight: 8, marginBottom: 8 },
   rangeChipText: { fontSize: 13, fontWeight: '700' },
   summaryCard: { borderRadius: 18, padding: 20 },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
-  summaryLabel: { fontSize: 13 },
-  summaryValue: { fontSize: 14, fontWeight: '700' },
+  summaryRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 14 },
+  summaryLabel: { flexGrow: 1, flexShrink: 0, fontSize: 13 },
+  summaryValue: { flexShrink: 1, maxWidth: '68%', textAlign: 'right', fontSize: 14, fontWeight: '800', fontVariant: ['tabular-nums'] },
   footnote: { fontSize: 11, textAlign: 'center', marginTop: 16, lineHeight: 16, paddingHorizontal: 10 },
 });
