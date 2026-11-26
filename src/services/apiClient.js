@@ -5,9 +5,13 @@ import { SyncEngine } from './SyncEngine';
 // Web must use a same-origin reverse proxy (e.g. /api/v1) so browsers do not
 // treat the HttpOnly session cookie as a blocked third-party cookie. Native
 // clients continue to call the hosted API directly.
+// Browser sessions require the same-origin reverse proxy so the Secure
+// HttpOnly cookie is first-party. Never let a build-time API override send
+// browser credentials directly to the hosted API.
 const API_URL =
-  process.env.EXPO_PUBLIC_API_URL ||
-  (Platform.OS === 'web' ? '/api/v1' : 'https://zannypay-backend.onrender.com/api/v1');
+  Platform.OS === 'web'
+    ? '/api/v1'
+    : process.env.EXPO_PUBLIC_API_URL || 'https://zannypay-backend.onrender.com/api/v1';
 
 // Browser storage is not an acceptable place for a bearer session token:
 // any script executing in the origin can read localStorage. Web sign-in
