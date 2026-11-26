@@ -248,16 +248,6 @@ export default function DashboardScreen({ navigation }) {
           </View>
           <AnimatedNumber value={balance} hidden={isBalanceHidden} format={(n) => formatCurrency(n)} style={styles.balanceValue} />
           <View style={styles.balanceDivider} />
-          <View style={styles.cardBottomRow}>
-            <TouchableOpacity style={styles.fundBtn} onPress={() => setFundModalVisible(true)}>
-              <Ionicons name="add-circle-outline" size={18} color="#061426" />
-              <Text style={styles.fundBtnText}>Add Money</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.transferBtn} onPress={() => navigation.navigate('Transfer')}>
-              <Ionicons name="paper-plane-outline" size={17} color="#EAF8FF" />
-              <Text style={styles.transferBtnText}>Send Money</Text>
-            </TouchableOpacity>
-          </View>
         </LinearGradient>
 
         {/* EARNINGS STRIP — a persistent, honest signal that saved money
@@ -476,11 +466,6 @@ const styles = StyleSheet.create({
   eyeIconWrap: { padding: 6 },
   balanceValue: { color: '#fff', fontSize: 32, fontWeight: '900', fontFamily: fonts.extraBold, marginTop: 13, marginBottom: 16, letterSpacing: -0.7 },
   balanceDivider: { height: 1, backgroundColor: 'rgba(166,218,248,0.18)', marginBottom: 14 },
-  cardBottomRow: { flexDirection: 'row', gap: 10 },
-  fundBtn: { flex: 1, backgroundColor: '#35D6F5', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 13 },
-  fundBtnText: { color: '#061426', fontWeight: '800', fontSize: 13, marginLeft: 6 },
-  transferBtn: { flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(180,220,245,0.28)', flexDirection: 'row', gap: 7, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 13 },
-  transferBtnText: { color: '#EAF8FF', fontWeight: '700', fontSize: 13 },
 
   primaryActions: { flexDirection: 'row', paddingHorizontal: 20, gap: 10, marginTop: 2, marginBottom: 20 },
   fundBtnLarge: { flex: 1, minHeight: 48, borderRadius: 25, backgroundColor: '#35D6F5', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
