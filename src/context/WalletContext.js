@@ -181,36 +181,73 @@ export function WalletProvider({ children }) {
 
         localInvoicesRef.current = savedInvoices || [];
 
-        setUser(savedUser);
-        setBalance(toNumber(savedBalance));
-        setTransactions(savedTxns);
         setOnboarded(savedOnboarded);
-        setSavingsGoals(savedGoals || []);
-        setLoan(savedLoan || null);
         setIsBalanceHidden(savedHideBalance || false);
 
         if (Platform.OS === 'web') {
-          // Browser auth is restored only by the server-validated HttpOnly session cookie.
+          // Never hydrate private customer data from browser storage before
+          // the server has validated the HttpOnly session cookie.
+          setUser(null);
+          setBalance(STARTING_BALANCE);
+          setTransactions([]);
+          setSavingsGoals([]);
+          setLoan(null);
+          setToken(null);
+
           const session = await apiGet('/auth/web/session');
           if (session?.authenticated && session.user) {
-            setToken(null);
             setUser(session.user);
             await saveJSON(STORAGE_KEYS.USER, session.user);
             setIsAuthenticated(true);
             await syncWallet();
           } else {
-            setToken(null);
             setIsAuthenticated(false);
+            localInvoicesRef.current = [];
+            await Promise.all([
+              saveJSON(STORAGE_KEYS.USER, null),
+              saveJSON(STORAGE_KEYS.BALANCE, STARTING_BALANCE),
+              saveJSON(STORAGE_KEYS.TXNS, []),
+              saveJSON(STORAGE_KEYS.SAVINGS_GOALS, []),
+              saveJSON(STORAGE_KEYS.LOAN, null),
+              saveJSON(STORAGE_KEYS.LOCAL_INVOICES, []),
+            ]);
           }
-        } else if (savedToken && savedUser) {
-          setToken(savedToken);
-          setIsAuthenticated(true);
-          await syncWallet();
-          drainOfflineQueue();
-          registerForPushNotifications(); // re-registers on every cold start so a token rotated by Expo/the OS stays current
+        } else {
+          setUser(savedUser);
+          setBalance(toNumber(savedBalance));
+          setTransactions(savedTxns);
+          setSavingsGoals(savedGoals || []);
+          setLoan(savedLoan || null);
+
+          if (savedToken && savedUser) {
+            setToken(savedToken);
+            setIsAuthenticated(true);
+            await syncWallet();
+            drainOfflineQueue();
+            registerForPushNotifications(); // re-registers on every cold start so a token rotated by Expo/the OS stays current
+          }
         }
       } catch (error) {
         console.error('Storage load error:', error);
+        if (Platform.OS === 'web') {
+          // Fail closed if session restoration cannot reach the server.
+          setIsAuthenticated(false);
+          setUser(null);
+          setToken(null);
+          setBalance(STARTING_BALANCE);
+          setTransactions([]);
+          setSavingsGoals([]);
+          setLoan(null);
+          localInvoicesRef.current = [];
+          await Promise.all([
+            saveJSON(STORAGE_KEYS.USER, null),
+            saveJSON(STORAGE_KEYS.BALANCE, STARTING_BALANCE),
+            saveJSON(STORAGE_KEYS.TXNS, []),
+            saveJSON(STORAGE_KEYS.SAVINGS_GOALS, []),
+            saveJSON(STORAGE_KEYS.LOAN, null),
+            saveJSON(STORAGE_KEYS.LOCAL_INVOICES, []),
+          ]);
+        }
       } finally {
         setLoading(false);
       }
@@ -321,6 +358,17 @@ export function WalletProvider({ children }) {
     setLoan(null);
     setServerCreditLimit(null);
     await clearToken();
+    // Clear cached customer data as well as credentials, so another person
+    // using this browser/device cannot see the previous account's snapshot.
+    localInvoicesRef.current = [];
+    await Promise.all([
+      saveJSON(STORAGE_KEYS.USER, null),
+      saveJSON(STORAGE_KEYS.BALANCE, STARTING_BALANCE),
+      saveJSON(STORAGE_KEYS.TXNS, []),
+      saveJSON(STORAGE_KEYS.SAVINGS_GOALS, []),
+      saveJSON(STORAGE_KEYS.LOAN, null),
+      saveJSON(STORAGE_KEYS.LOCAL_INVOICES, []),
+    ]);
     unregisterPushNotifications(); // best-effort — see pushNotifications.js; must never block or fail logout itself
     // An explicit logout means fully logged out — the biometric
     // convenience credential goes with it, not just the active session.
