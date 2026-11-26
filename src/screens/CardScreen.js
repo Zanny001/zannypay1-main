@@ -550,9 +550,9 @@ const styles = StyleSheet.create({
   limitLabel: { fontSize: 12, fontWeight: '600' },
   limitValue: { fontSize: 12, fontWeight: '700' },
 
-  servicesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  serviceItem: { width: '47%', flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10 },
-  serviceLabel: { fontSize: 13, fontWeight: '600', flexShrink: 1 },
+  servicesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  serviceItem: { width: '48%', minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 10, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, borderColor: '#1B3B57' },
+  serviceLabel: { flex: 1, minWidth: 0, fontSize: 12.5, lineHeight: 17, fontWeight: '700', flexShrink: 1 },
 
   emptyActivityText: { fontSize: 13, textAlign: 'center', paddingVertical: 20 },
 
