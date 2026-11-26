@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import * as Contacts from 'expo-contacts';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -45,6 +46,43 @@ export default function AirtimeScreen({ navigation }) {
   const [pin, setPin] = useState('');
   const [successInfo, setSuccessInfo] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [contactsVisible, setContactsVisible] = useState(false);
+  const [contacts, setContacts] = useState([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+
+  const openContactPicker = async () => {
+    try {
+      setContactsLoading(true);
+      const permission = await Contacts.requestPermissionsAsync();
+      if (!permission.granted) {
+        alert('Contacts permission needed', 'Allow contacts access to choose a phone number, or enter the number manually.', null, { type: 'info' });
+        return;
+      }
+      const result = await Contacts.getContactsAsync({
+        fields: [Contacts.Fields.PhoneNumbers],
+        sort: Contacts.SortTypes.FirstName,
+        pageSize: 250,
+      });
+      const usable = (result.data || [])
+        .filter((contact) => contact.phoneNumbers?.some((item) => item.number))
+        .map((contact) => ({
+          id: contact.id,
+          name: contact.name || 'Unnamed contact',
+          number: contact.phoneNumbers.find((item) => item.number)?.number,
+        }));
+      setContacts(usable);
+      setContactsVisible(true);
+    } catch (error) {
+      alert('Unable to open contacts', 'You can still enter the recipient phone number manually.', null, { type: 'error' });
+    } finally {
+      setContactsLoading(false);
+    }
+  };
+
+  const chooseContact = (contact) => {
+    setPhone(String(contact.number || '').replace(/[()\s-]/g, ''));
+    setContactsVisible(false);
+  };
 
   const handleTopup = () => {
     if (!AIRTIME_AND_DATA_LIVE) {
@@ -156,7 +194,9 @@ export default function AirtimeScreen({ navigation }) {
               value={phone}
               onChangeText={setPhone}
             />
-            <Ionicons name="person-circle" size={32} color={theme.primary} />
+            <TouchableOpacity onPress={openContactPicker} disabled={contactsLoading} accessibilityRole="button" accessibilityLabel="Choose recipient from contacts" style={styles.contactButton}>
+              <Ionicons name={contactsLoading ? "hourglass-outline" : "person-circle-outline"} size={29} color={theme.primary} />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -217,6 +257,37 @@ export default function AirtimeScreen({ navigation }) {
 
         <GradientButton title="Coming Soon" onPress={handleTopup} disabled={!AIRTIME_AND_DATA_LIVE} style={{ marginTop: 20 }} />
       </ScrollView>
+
+      <Modal visible={contactsVisible} transparent animationType="slide" onRequestClose={() => setContactsVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.contactsCard, { backgroundColor: theme.surface }]}>
+            <View style={styles.contactsHeader}>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>Choose a contact</Text>
+              <TouchableOpacity onPress={() => setContactsVisible(false)} accessibilityLabel="Close contacts">
+                <Ionicons name="close" size={24} color={theme.text} />
+              </TouchableOpacity>
+            </View>
+            {contacts.length ? (
+              <ScrollView keyboardShouldPersistTaps="handled">
+                {contacts.map((contact) => (
+                  <TouchableOpacity key={contact.id} style={[styles.contactRow, { borderBottomColor: theme.border }]} onPress={() => chooseContact(contact)}>
+                    <View style={[styles.contactAvatar, { backgroundColor: theme.surfaceAlt }]}>
+                      <Ionicons name="person-outline" size={18} color={theme.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.contactName, { color: theme.text }]}>{contact.name}</Text>
+                      <Text style={[styles.contactNumber, { color: theme.textMuted }]}>{contact.number}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            ) : (
+              <Text style={[styles.availabilityText, { color: theme.textMuted }]}>No contacts with phone numbers were found. Enter a number manually.</Text>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       {/* PIN Confirmation Modal */}
       <Modal visible={pinModalVisible} transparent animationType="fade" onRequestClose={() => setPinModalVisible(false)}>
@@ -287,6 +358,13 @@ const styles = StyleSheet.create({
   providerChip: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, marginRight: 8, marginBottom: 10 },
   inputCard: { borderRadius: 20, padding: 20, marginTop: 6, marginBottom: 20 },
   inputRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  contactButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
+  contactsCard: { maxHeight: '78%', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20 },
+  contactsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  contactRow: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+  contactAvatar: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  contactName: { fontSize: 14, fontWeight: '700' },
+  contactNumber: { fontSize: 12, marginTop: 3 },
   input: { flex: 1, fontSize: 20, fontWeight: '800', padding: 0 },
   sectionTitle: { fontSize: 16, fontWeight: '800', marginBottom: 15 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
