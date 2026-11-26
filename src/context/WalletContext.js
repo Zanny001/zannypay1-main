@@ -185,6 +185,7 @@ export function WalletProvider({ children }) {
         setIsBalanceHidden(savedHideBalance || false);
 
         if (Platform.OS === 'web') {
+          localInvoicesRef.current = [];
           // Never hydrate private customer data from browser storage before
           // the server has validated the HttpOnly session cookie.
           setUser(null);
