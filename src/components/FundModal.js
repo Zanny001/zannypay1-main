@@ -54,30 +54,39 @@ export default function FundModal({ visible, onClose }) {
   };
 
   const checkStatus = async (reference = pendingReference, value = pendingAmount) => {
-    if (!reference) return;
+    if (!reference || confirming) return;
     setConfirming(true);
     setStatusMessage('Checking securely with Paystack…');
     let latest = { ok: false, status: 'pending' };
-    for (let i = 0; i < 4; i += 1) {
-      latest = await verifyFunding(reference);
-      if (latest.ok || ['failed', 'abandoned', 'reversed'].includes(String(latest.status).toLowerCase())) break;
-      if (i < 3) await new Promise((resolve) => setTimeout(resolve, 2500));
-    }
-    await syncWallet();
-    setConfirming(false);
-    if (latest.ok) {
-      setPendingReference(null);
-      setPendingAmount(null);
-      setPendingAuthorizationUrl(null);
-      setStatusMessage('');
-      alert('Payment confirmed', `${money(value)} has been added to your ZannyPay wallet.`, null, { type: 'success' });
-      setAmount('');
-      onClose();
-    } else {
-      const failed = ['failed', 'abandoned', 'reversed'].includes(String(latest.status).toLowerCase());
-      setStatusMessage(failed
-        ? 'Paystack did not complete this payment. If your bank account was debited, contact support with the reference below before trying again.'
-        : 'Your payment has not been confirmed yet. Your wallet has not been credited. Keep this reference and check again shortly. Do not start another payment for this attempt.');
+    try {
+      for (let i = 0; i < 4; i += 1) {
+        try {
+          latest = await verifyFunding(reference);
+        } catch (error) {
+          latest = { ok: false, status: 'pending', error: 'We could not reach the payment verification service.' };
+        }
+        if (latest.ok || ['failed', 'abandoned', 'reversed'].includes(String(latest.status).toLowerCase())) break;
+        if (i < 3) await new Promise((resolve) => setTimeout(resolve, 2500));
+      }
+      await syncWallet();
+      if (latest.ok) {
+        setPendingReference(null);
+        setPendingAmount(null);
+        setPendingAuthorizationUrl(null);
+        setStatusMessage('');
+        alert('Payment confirmed', `${money(value)} has been added to your ZannyPay wallet.`, null, { type: 'success' });
+        setAmount('');
+        onClose();
+      } else {
+        const failed = ['failed', 'abandoned', 'reversed'].includes(String(latest.status).toLowerCase());
+        setStatusMessage(failed
+          ? 'Paystack did not complete this payment. If your bank account was debited, contact support with the reference below before trying again.'
+          : latest.error || 'Your payment has not been confirmed yet. Your wallet has not been credited. Keep this reference and check again shortly. Do not start another payment for this attempt.');
+      }
+    } catch (error) {
+      setStatusMessage('We could not refresh the payment status. Your wallet has not been credited based on this screen. Keep the reference and try checking again.');
+    } finally {
+      setConfirming(false);
     }
   };
 
@@ -87,44 +96,44 @@ export default function FundModal({ visible, onClose }) {
       return;
     }
     setLoading(true);
-    const result = await fundWallet(parsedAmount);
-    if (result.completed) {
-      setLoading(false);
-      await syncWallet();
-      alert('Payment confirmed', 'Your wallet has already been credited for this payment attempt.', null, { type: 'success' });
-      setAmount('');
-      onClose();
-      return;
-    }
-    if (result.pending) {
-      setLoading(false);
-      setPendingReference(result.reference);
-      setPendingAmount(Number(result.amount || parsedAmount));
-      setPendingAuthorizationUrl(result.authorizationUrl || null);
-      setStatusMessage(result.error || 'This payment attempt is already processing.');
-      return;
-    }
-    if (!result.ok || !result.authorizationUrl) {
-      setLoading(false);
-      alert('Could not start payment', result.error || 'Please try again in a moment.', null, { type: 'error' });
-      return;
-    }
-    setPendingReference(result.reference);
-    setPendingAmount(parsedAmount);
-    setPendingAuthorizationUrl(result.authorizationUrl);
-    const returnUrl = Linking.createURL('payment-complete');
     try {
-      const browserResult = await WebBrowser.openAuthSessionAsync(result.authorizationUrl, returnUrl);
-      // A browser close/cancel is not proof of payment. Always ask our server
-      // to verify the provider transaction before showing a success state.
-      if (browserResult?.type === 'cancel' || browserResult?.type === 'dismiss') {
-        setStatusMessage('Checkout was closed. We are checking whether Paystack received a successful payment.');
+      const result = await fundWallet(parsedAmount);
+      if (result.completed) {
+        await syncWallet();
+        alert('Payment confirmed', 'Your wallet has already been credited for this payment attempt.', null, { type: 'success' });
+        setAmount('');
+        onClose();
+        return;
       }
-    } catch {
-      setStatusMessage('Checkout could not be reopened. We will check the payment status directly.');
+      if (result.pending) {
+        setPendingReference(result.reference);
+        setPendingAmount(Number(result.amount || parsedAmount));
+        setPendingAuthorizationUrl(result.authorizationUrl || null);
+        setStatusMessage(result.error || 'This payment attempt is already processing.');
+        return;
+      }
+      if (!result.ok || !result.authorizationUrl || !result.reference) {
+        alert('Could not start payment', result.error || 'Please try again in a moment.', null, { type: 'error' });
+        return;
+      }
+      setPendingReference(result.reference);
+      setPendingAmount(parsedAmount);
+      setPendingAuthorizationUrl(result.authorizationUrl);
+      const returnUrl = Linking.createURL('payment-complete');
+      try {
+        const browserResult = await WebBrowser.openAuthSessionAsync(result.authorizationUrl, returnUrl);
+        if (browserResult?.type === 'cancel' || browserResult?.type === 'dismiss') {
+          setStatusMessage('Checkout was closed. We are checking whether Paystack received a successful payment.');
+        }
+      } catch {
+        setStatusMessage('Checkout could not be reopened. We will check the payment status directly.');
+      }
+      await checkStatus(result.reference, parsedAmount);
+    } catch (error) {
+      alert('Could not start payment', error?.message || 'We could not connect to the funding service. Please try again.', null, { type: 'error' });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-    await checkStatus(result.reference, parsedAmount);
   };
 
   const resumeCheckout = async () => {
