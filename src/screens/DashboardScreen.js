@@ -237,6 +237,10 @@ export default function DashboardScreen({ navigation }) {
         {/* BALANCE CARD */}
         <LinearGradient colors={['#123E61', '#0B2947', '#071A31']} style={styles.balanceCard}>
           <View pointerEvents="none" style={styles.balanceGlow} />
+          <View pointerEvents="none" style={styles.walletArtwork}>
+            <Ionicons name="wallet" size={88} color="#35D6F5" />
+            <View style={styles.walletArtworkBadge}><Text style={styles.walletArtworkMark}>Z</Text></View>
+          </View>
           <View style={styles.balanceTopRow}>
             <View>
               <Text style={styles.balanceLabel}>Wallet Balance</Text>
@@ -460,6 +464,9 @@ const styles = StyleSheet.create({
   frozenBannerText: { fontSize: 12, fontWeight: '700', marginLeft: 10, flex: 1 },
   balanceCard: { marginHorizontal: 20, borderRadius: 24, padding: 22, marginBottom: 14, overflow: 'hidden', borderWidth: 1, borderColor: '#28618A' },
   balanceGlow: { position: 'absolute', width: 190, height: 190, borderRadius: 95, backgroundColor: 'rgba(32,201,243,0.13)', right: -72, top: -92 },
+  walletArtwork: { position: 'absolute', right: 14, top: 56, opacity: 0.18, transform: [{ rotate: '-12deg' }] },
+  walletArtworkBadge: { position: 'absolute', right: 28, top: 27, width: 30, height: 30, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(53,214,245,0.7)', alignItems: 'center', justifyContent: 'center' },
+  walletArtworkMark: { color: '#35D6F5', fontSize: 20, fontWeight: '900' },
   balanceTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   balanceLabel: { color: '#D5EAF8', fontSize: 13, fontWeight: '700' },
   balanceCaption: { color: '#8FB5D2', fontSize: 10, marginTop: 3 },
