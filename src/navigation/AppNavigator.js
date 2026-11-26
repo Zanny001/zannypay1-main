@@ -28,11 +28,8 @@ import CreateRecurringTransferScreen from '../screens/CreateRecurringTransferScr
 // Elite Modules
 import AnalyticsScreen from '../screens/AnalyticsScreen';
 import CardScreen from '../screens/CardScreen';
-import RewardsScreen from '../screens/RewardsScreen';
 
 // Elite Modules (v2)
-import SavingsScreen from '../screens/SavingsScreen';
-import LoanScreen from '../screens/LoanScreen';
 import BeneficiariesScreen from '../screens/BeneficiariesScreen';
 import QRPayScreen from '../screens/QRPayScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
