@@ -133,7 +133,10 @@ export const apiGet = async (endpoint) => {
   try {
     const headers = await buildHeaders();
     devLog(`[API GET] Request: ${safeEndpointLabel(endpoint)}`);
-    const response = await fetch(`${API_URL}${endpoint}`, { headers });
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      headers,
+      credentials: Platform.OS === 'web' ? 'include' : 'omit',
+    });
     const data = await response.json().catch(() => ({}));
     devLog(`[API GET] Response from ${safeEndpointLabel(endpoint)}:`, redact(data));
     if (!response.ok) throw new Error(extractErrorMessage(data, 'API GET request failed'));
@@ -167,6 +170,7 @@ const apiWrite = async (method, endpoint, payload, fallbackConfig, isRetry) => {
     const response = await fetch(`${API_URL}${endpoint}`, {
       method,
       headers,
+      credentials: Platform.OS === 'web' ? 'include' : 'omit',
       body: JSON.stringify(payload),
     });
     const data = await response.json().catch(() => ({}));
