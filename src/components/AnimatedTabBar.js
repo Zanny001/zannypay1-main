@@ -16,9 +16,9 @@ import { duration, easing, haptic, spring, useReduceMotion } from '../theme/moti
 // renderer handed to React Navigation.
 const ICONS = {
   DashboardTab: ['home-outline', 'home'],
-  Savings: ['trending-up-outline', 'trending-up'],
-  Loans: ['cash-outline', 'cash'],
-  Rewards: ['gift-outline', 'gift'],
+  Cards: ['card-outline', 'card'],
+  QRPay: ['qr-code-outline', 'qr-code'],
+  History: ['time-outline', 'time'],
   Profile: ['person-outline', 'person'],
 };
 
