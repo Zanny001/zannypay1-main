@@ -30,11 +30,11 @@ const DATA_PLANS = [
   { id: '8', data: '10GB', duration: '30 Days', price: 2940 },
 ];
 
-export default function AirtimeScreen({ navigation }) {
+export default function AirtimeScreen({ navigation, route }) {
   const { alert } = useAlert();
   const { theme } = useTheme();
   const { buyAirtime, user } = useWallet();
-  const [activeTab, setActiveTab] = useState('Airtime');
+  const [activeTab, setActiveTab] = useState(route?.params?.initialTab === 'Data Bundle' ? 'Data Bundle' : 'Airtime');
   const [provider, setProvider] = useState(PROVIDERS[0]);
   const [phone, setPhone] = useState('');
   const [amount, setAmount] = useState('');
