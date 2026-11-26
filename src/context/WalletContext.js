@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { saveJSON, loadJSON } from '../utils/storage';
 import { apiGet, apiPost, apiPatch, apiDelete, getSavedToken, saveToken, clearToken, generateIdempotencyKey } from '../services/apiClient';
 import { logLoginActivity } from '../utils/loginActivity';
@@ -189,7 +189,20 @@ export function WalletProvider({ children }) {
         setLoan(savedLoan || null);
         setIsBalanceHidden(savedHideBalance || false);
 
-        if (savedToken && savedUser) {
+        if (Platform.OS === 'web') {
+          // Browser auth is restored only by the server-validated HttpOnly session cookie.
+          const session = await apiGet('/auth/web/session');
+          if (session?.authenticated && session.user) {
+            setToken(null);
+            setUser(session.user);
+            await saveJSON(STORAGE_KEYS.USER, session.user);
+            setIsAuthenticated(true);
+            await syncWallet();
+          } else {
+            setToken(null);
+            setIsAuthenticated(false);
+          }
+        } else if (savedToken && savedUser) {
           setToken(savedToken);
           setIsAuthenticated(true);
           await syncWallet();
@@ -211,7 +224,8 @@ export function WalletProvider({ children }) {
 
   const signup = useCallback(async ({ name, email, phone, pin, referredByCode }) => {
     try {
-      const res = await apiPost('/auth/signup', {
+      const isWeb = Platform.OS === 'web';
+      const res = await apiPost(isWeb ? '/auth/web/signup' : '/auth/signup', {
         name,
         email: email?.trim(),
         phone,
@@ -219,9 +233,9 @@ export function WalletProvider({ children }) {
         ...(referredByCode ? { referredByCode: referredByCode.trim().toUpperCase() } : {}),
       });
       const validToken = res?.access_token || res?.token;
-      if (res && validToken) {
-        await saveToken(validToken);
-        setToken(validToken);
+      if (res && (isWeb ? res.user : validToken)) {
+        if (!isWeb) await saveToken(validToken);
+        setToken(isWeb ? null : validToken);
         setUser(res.user);
         setIsAuthenticated(true);
         await saveJSON(STORAGE_KEYS.USER, res.user);
@@ -230,7 +244,7 @@ export function WalletProvider({ children }) {
           setBalance(processedBalance);
           await saveJSON(STORAGE_KEYS.BALANCE, processedBalance);
         }
-        registerForPushNotifications();
+        if (!isWeb) registerForPushNotifications();
         return { ok: true };
       }
       return { ok: false, error: res?.error || 'Registration failed.' };
@@ -241,17 +255,18 @@ export function WalletProvider({ children }) {
 
   const login = useCallback(async (phone, pin) => {
     try {
-      const res = await apiPost('/auth/login', { phone, pin });
+      const isWeb = Platform.OS === 'web';
+      const res = await apiPost(isWeb ? '/auth/web/login' : '/auth/login', { phone, pin });
       const validToken = res?.access_token || res?.token;
-      if (res && validToken) {
-        await saveToken(validToken);
-        setToken(validToken);
+      if (res && (isWeb ? res.user : validToken)) {
+        if (!isWeb) await saveToken(validToken);
+        setToken(isWeb ? null : validToken);
         setUser(res.user);
         setIsAuthenticated(true);
         await saveJSON(STORAGE_KEYS.USER, res.user);
         await syncWallet();
         await logLoginActivity();
-        registerForPushNotifications();
+        if (!isWeb) registerForPushNotifications();
         return { ok: true };
       }
       return { ok: false, error: res?.error || 'Invalid telephone number or PIN.' };
@@ -290,6 +305,13 @@ export function WalletProvider({ children }) {
   }, [syncWallet]);
 
   const logout = useCallback(async () => {
+    if (Platform.OS === 'web') {
+      try {
+        await apiPost('/auth/web/logout', {});
+      } catch (error) {
+        console.error('Browser session revocation failed:', error.message);
+      }
+    }
     setIsAuthenticated(false);
     setToken(null);
     setUser(null);
