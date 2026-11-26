@@ -21,7 +21,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.zannypay.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "ZannyPay uses your camera to scan a Pay QR code."
+        "NSCameraUsageDescription": "ZannyPay uses your camera to scan a Pay QR code.",
+        "NSContactsUsageDescription": "ZannyPay accesses your contacts only when you choose a recipient for an airtime or data top-up."
       }
     },
     "android": {
@@ -46,6 +47,12 @@
         "expo-camera",
         {
           "cameraPermission": "ZannyPay uses your camera to scan a Pay QR code."
+        }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "ZannyPay accesses your contacts only when you choose a recipient for an airtime or data top-up."
         }
       ]
     ],

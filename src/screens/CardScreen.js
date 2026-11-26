@@ -32,7 +32,7 @@ const NETWORK_META = {
   VISA: { label: 'VISA', bg: ['#1A1F71', '#2C3E9E'] },
   MASTERCARD: { label: 'mastercard', bg: ['#1B1B1B', '#3D2E1A'] },
   VERVE: { label: 'VERVE', bg: ['#0A3D2E', '#0E9F6E'] },
-  ZANNYPAY: { label: 'ZANNYPAY', bg: ['#1A1523', '#3B2A63'] },
+  ZANNYPAY: { label: 'ZANNYPAY', bg: ['#123E61', '#061426'] },
 };
 
 function CardFace({ card, revealed, holderName }) {
@@ -67,12 +67,12 @@ function CardFace({ card, revealed, holderName }) {
         <Text style={styles.networkWordmark}>{meta.label}</Text>
       </View>
 
-      <Text style={styles.cardNumber}>{panDisplay}</Text>
+      <Text style={styles.cardNumber} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.78}>{panDisplay}</Text>
 
       <View style={styles.cardBottom}>
         <View>
           <Text style={styles.cardLabel}>CARD HOLDER</Text>
-          <Text style={styles.cardValue}>{(holderName || 'ZANNYPAY USER').toUpperCase()}</Text>
+          <Text style={styles.cardValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{(holderName || 'ZANNYPAY USER').toUpperCase()}</Text>
         </View>
         <View style={{ alignItems: 'flex-end' }}>
           <Text style={styles.cardLabel}>EXPIRES</Text>
@@ -512,10 +512,10 @@ const styles = StyleSheet.create({
   defaultPill: { backgroundColor: 'rgba(255,255,255,0.18)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginTop: 6, alignSelf: 'flex-start' },
   defaultPillText: { color: '#fff', fontSize: 9, fontWeight: '800', letterSpacing: 1 },
   networkWordmark: { color: '#fff', fontSize: 18, fontWeight: '800', fontStyle: 'italic' },
-  cardNumber: { color: '#fff', fontSize: 20, fontWeight: '700', letterSpacing: 2.5 },
+  cardNumber: { color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 1.8, maxWidth: '100%' },
   cardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
   cardLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 9, fontWeight: '600', letterSpacing: 1, marginBottom: 2 },
-  cardValue: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  cardValue: { color: '#fff', fontSize: 12, fontWeight: '700', maxWidth: 190, flexShrink: 1 },
   frozenOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center', gap: 8 },
   frozenText: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 3 },
 
@@ -550,9 +550,9 @@ const styles = StyleSheet.create({
   limitLabel: { fontSize: 12, fontWeight: '600' },
   limitValue: { fontSize: 12, fontWeight: '700' },
 
-  servicesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  serviceItem: { width: '47%', flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10 },
-  serviceLabel: { fontSize: 13, fontWeight: '600', flexShrink: 1 },
+  servicesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  serviceItem: { width: '48%', minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 10, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, borderColor: '#1B3B57' },
+  serviceLabel: { flex: 1, minWidth: 0, fontSize: 12.5, lineHeight: 17, fontWeight: '700', flexShrink: 1 },
 
   emptyActivityText: { fontSize: 13, textAlign: 'center', paddingVertical: 20 },
 

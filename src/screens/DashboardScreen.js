@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, RefreshControl, Modal } from 'react-native';
+import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Switch, RefreshControl, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -97,6 +97,7 @@ export default function DashboardScreen({ navigation }) {
   const handleQuickAction = (key) => {
     if (key === 'Fund') return setFundModalVisible(true);
     if (key === 'More') return setMoreModalVisible(true);
+    if (key === 'Data') return navigation.navigate('Airtime', { initialTab: 'Data Bundle' });
     navigation.navigate(key);
   };
 
@@ -200,33 +201,27 @@ export default function DashboardScreen({ navigation }) {
       <ScrollView showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}>
         {/* HEADER */}
         <View style={styles.header}>
-          <View style={styles.userInfoRow}>
-            <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
-              <Avatar uri={user?.profileImage} name={user?.name} size={44} />
-            </TouchableOpacity>
-            <View style={{ marginLeft: 12 }}>
-              <Text style={[styles.hello, { color: theme.text }]}>Hi, {user?.name?.split(' ')[0] || 'there'} 👋</Text>
-              <Text style={[styles.account, { color: theme.textMuted }]}>{maskAccount(user?.accountNumber || user?.phone || '0000')}</Text>
+          <View style={styles.brandGreeting}>
+            <View style={styles.brandLine}>
+              <Image source={require('../../assets/icon.png')} style={styles.brandLogo} resizeMode="contain" />
+              <Text style={[styles.brandName, { color: theme.text }]}>Zanny<Text style={{ color: theme.primary }}>Pay</Text></Text>
             </View>
+            <Text style={[styles.hello, { color: theme.text }]}>Hello, {user?.name?.split(' ')[0] || 'there'} 👋</Text>
+            <Text style={[styles.account, { color: theme.textMuted }]}>Welcome back · {maskAccount(user?.accountNumber || user?.phone || '0000')}</Text>
           </View>
           <View style={styles.headerActions}>
             <View style={[styles.focusToggleWrap, { backgroundColor: theme.surface, borderColor: theme.border }]}>
               <Text style={[styles.focusLabel, { color: theme.textMuted }]}>Focus</Text>
-              <Switch
-                value={isFocusMode}
-                onValueChange={setIsFocusMode}
-                trackColor={{ false: theme.border, true: theme.primary }}
-                thumbColor={'#fff'}
-                style={{ transform: [{ scaleX: 0.7 }, { scaleY: 0.7 }] }}
-              />
+              <Switch value={isFocusMode} onValueChange={setIsFocusMode}
+                trackColor={{ false: theme.border, true: theme.primary }} thumbColor={'#fff'}
+                style={{ transform: [{ scaleX: 0.7 }, { scaleY: 0.7 }] }} />
             </View>
             <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={[styles.bellBtn, { backgroundColor: theme.surface }]}>
               <Ionicons name="notifications-outline" size={22} color={theme.text} />
-              {unreadCount > 0 && (
-                <View style={styles.bellBadge}>
-                  <Text style={styles.bellBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-                </View>
-              )}
+              {unreadCount > 0 && <View style={styles.bellBadge}><Text style={styles.bellBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text></View>}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={{ marginLeft: 10 }}>
+              <Avatar uri={user?.profileImage} name={user?.name} size={38} />
             </TouchableOpacity>
           </View>
         </View>
@@ -241,28 +236,23 @@ export default function DashboardScreen({ navigation }) {
         )}
 
         {/* BALANCE CARD */}
-        <LinearGradient colors={['#063F32', '#031A17', '#020D0C']} style={styles.balanceCard}>
+        <LinearGradient colors={['#123E61', '#0B2947', '#071A31']} style={styles.balanceCard}>
+          <View pointerEvents="none" style={styles.balanceGlow} />
+          <View pointerEvents="none" style={styles.walletArtwork}>
+            <Ionicons name="wallet" size={88} color="#35D6F5" />
+            <View style={styles.walletArtworkBadge}><Text style={styles.walletArtworkMark}>Z</Text></View>
+          </View>
           <View style={styles.balanceTopRow}>
-            <Text style={styles.balanceLabel}>Total Balance</Text>
+            <View>
+              <Text style={styles.balanceLabel}>Wallet Balance</Text>
+              <Text style={styles.balanceCaption}>Available balance</Text>
+            </View>
             <TouchableOpacity onPress={toggleBalanceHidden} style={styles.eyeIconWrap}>
-              <Ionicons name={isBalanceHidden ? 'eye-off' : 'eye'} size={18} color="#A09CAB" />
+              <Ionicons name={isBalanceHidden ? 'eye-off' : 'eye'} size={19} color="#B8D8F2" />
             </TouchableOpacity>
           </View>
-          <AnimatedNumber
-            value={balance}
-            hidden={isBalanceHidden}
-            format={(n) => formatCurrency(n)}
-            style={styles.balanceValue}
-          />
-          <View style={styles.cardBottomRow}>
-            <TouchableOpacity style={styles.fundBtn} onPress={() => setFundModalVisible(true)}>
-              <Ionicons name="add" size={16} color="#fff" />
-              <Text style={styles.fundBtnText}>Add Money</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.transferBtn} onPress={() => navigation.navigate('Transfer')}>
-              <Text style={styles.transferBtnText}>Transfer</Text>
-            </TouchableOpacity>
-          </View>
+          <AnimatedNumber value={balance} hidden={isBalanceHidden} format={(n) => formatCurrency(n)} style={styles.balanceValue} />
+          <View style={styles.balanceDivider} />
         </LinearGradient>
 
         {/* EARNINGS STRIP — a persistent, honest signal that saved money
@@ -291,31 +281,36 @@ export default function DashboardScreen({ navigation }) {
           </TouchableOpacity>
         )}
 
-        {/* TIER 1 SHORTCUTS — big cards, primary money-movement actions */}
+        {/* Primary wallet actions */}
         {!isFocusMode && (
-          <View style={styles.tier1Row}>
-            {TIER1_ACTIONS.map((action) => (
-              <PressableScale key={action.key} style={styles.tier1Card} onPress={() => handleQuickAction(action.key)}>
-                <View style={[styles.tier1CardInner, { backgroundColor: theme.surface }]}>
-                  <View style={[styles.tier1IconWrap, { backgroundColor: `${theme.primary}1A` }]}>
-                    <Ionicons name={action.icon} size={20} color={theme.primary} />
-                  </View>
-                  <Text style={[styles.tier1Label, { color: theme.text }]} numberOfLines={1}>{action.label}</Text>
-                </View>
-              </PressableScale>
-            ))}
+          <View style={styles.primaryActions}>
+            <TouchableOpacity style={styles.fundBtnLarge} onPress={() => setFundModalVisible(true)} activeOpacity={0.85}>
+              <Ionicons name="add-circle" size={19} color="#061426" />
+              <Text style={styles.fundBtnLargeText}>Top Up Wallet</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.transferBtnLarge} onPress={() => navigation.navigate('Transfer')} activeOpacity={0.85}>
+              <Ionicons name="paper-plane" size={18} color={theme.text} />
+              <Text style={[styles.transferBtnLargeText, { color: theme.text }]}>Send Money</Text>
+            </TouchableOpacity>
           </View>
         )}
 
-        {/* TIER 2 — secondary services, smaller grid */}
-        <View style={styles.gridContainer}>
-          {(isFocusMode ? [...TIER1_ACTIONS, ...TIER2_ACTIONS] : TIER2_ACTIONS).map((action) => (
-            <PressableScale key={action.key} style={styles.gridItem} onPress={() => handleQuickAction(action.key)}>
-              <View style={[styles.gridIconWrap, { backgroundColor: theme.surface }]}>
-                <Ionicons name={action.icon} size={24} color={theme.primary} />
+        {/* Five primary service shortcuts */}
+        <View style={styles.servicesRow}>
+          {[
+            { key: 'Transfer', icon: 'swap-horizontal', label: 'Transfer' },
+            { key: 'Bills', icon: 'receipt-outline', label: 'Pay Bills' },
+            { key: 'Airtime', icon: 'phone-portrait-outline', label: 'Airtime' },
+            { key: 'Data', icon: 'wifi-outline', label: 'Data' },
+            { key: 'More', icon: 'grid-outline', label: 'More' },
+          ].map((action, index) => (
+            <TouchableOpacity key={`${action.label}-${index}`} style={styles.serviceShortcut}
+              onPress={() => handleQuickAction(action.key)} activeOpacity={0.75}>
+              <View style={[styles.serviceShortcutIcon, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <Ionicons name={action.icon} size={22} color={theme.primary} />
               </View>
-              <Text style={[styles.gridLabel, { color: theme.text }]}>{action.label}</Text>
-            </PressableScale>
+              <Text style={[styles.serviceShortcutLabel, { color: theme.text }]}>{action.label}</Text>
+            </TouchableOpacity>
           ))}
         </View>
 
@@ -453,10 +448,13 @@ export default function DashboardScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16 },
-  userInfoRow: { flexDirection: 'row', alignItems: 'center' },
-  hello: { fontSize: 16, fontWeight: '700', fontFamily: fonts.bold },
-  account: { fontSize: 12, marginTop: 2 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 14, paddingBottom: 18 },
+  brandGreeting: { flex: 1, minWidth: 0 },
+  brandLine: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  brandLogo: { width: 31, height: 31, borderRadius: 9, marginRight: 8 },
+  brandName: { fontSize: 19, fontWeight: '900', letterSpacing: -0.5 },
+  hello: { fontSize: 17, fontWeight: '800', fontFamily: fonts.bold },
+  account: { fontSize: 11.5, marginTop: 3 },
   headerActions: { flexDirection: 'row', alignItems: 'center' },
   focusToggleWrap: { flexDirection: 'row', alignItems: 'center', marginRight: 12, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 20, borderWidth: 1 },
   focusLabel: { fontSize: 11, fontWeight: '700', marginLeft: 4 },
@@ -465,17 +463,27 @@ const styles = StyleSheet.create({
   bellBadgeText: { color: '#fff', fontSize: 9, fontWeight: '800' },
   frozenBanner: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginBottom: 16, padding: 14, borderRadius: 14 },
   frozenBannerText: { fontSize: 12, fontWeight: '700', marginLeft: 10, flex: 1 },
-  balanceCard: { marginHorizontal: 20, borderRadius: 24, padding: 24, marginBottom: 14 },
+  balanceCard: { marginHorizontal: 20, borderRadius: 24, padding: 22, marginBottom: 14, overflow: 'hidden', borderWidth: 1, borderColor: '#28618A' },
+  balanceGlow: { position: 'absolute', width: 190, height: 190, borderRadius: 95, backgroundColor: 'rgba(32,201,243,0.13)', right: -72, top: -92 },
+  walletArtwork: { position: 'absolute', right: 14, top: 56, opacity: 0.18, transform: [{ rotate: '-12deg' }] },
+  walletArtworkBadge: { position: 'absolute', right: 28, top: 27, width: 30, height: 30, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(53,214,245,0.7)', alignItems: 'center', justifyContent: 'center' },
+  walletArtworkMark: { color: '#35D6F5', fontSize: 20, fontWeight: '900' },
   balanceTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  balanceLabel: { color: '#A09CAB', fontSize: 13, fontWeight: '600' },
-  eyeIconWrap: { padding: 4 },
-  balanceValue: { color: '#fff', fontSize: 34, fontWeight: '800', fontFamily: fonts.extraBold, marginTop: 8, marginBottom: 20 },
-  cardBottomRow: { flexDirection: 'row', gap: 12 },
-  fundBtn: { flex: 1, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 12 },
-  fundBtnText: { color: '#fff', fontWeight: '700', fontSize: 14, marginLeft: 6 },
-  transferBtn: { flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 12 },
-  transferBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  balanceLabel: { color: '#D5EAF8', fontSize: 13, fontWeight: '700' },
+  balanceCaption: { color: '#8FB5D2', fontSize: 10, marginTop: 3 },
+  eyeIconWrap: { padding: 6 },
+  balanceValue: { color: '#fff', fontSize: 32, fontWeight: '900', fontFamily: fonts.extraBold, marginTop: 13, marginBottom: 16, letterSpacing: -0.7 },
+  balanceDivider: { height: 1, backgroundColor: 'rgba(166,218,248,0.18)', marginBottom: 14 },
 
+  primaryActions: { flexDirection: 'row', paddingHorizontal: 20, gap: 10, marginTop: 2, marginBottom: 20 },
+  fundBtnLarge: { flex: 1, minHeight: 48, borderRadius: 25, backgroundColor: '#35D6F5', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  fundBtnLargeText: { color: '#061426', fontSize: 13, fontWeight: '800' },
+  transferBtnLarge: { flex: 1, minHeight: 48, borderRadius: 25, borderWidth: 1.5, borderColor: '#20C9F3', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  transferBtnLargeText: { fontSize: 13, fontWeight: '800' },
+  servicesRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 17, marginBottom: 22 },
+  serviceShortcut: { alignItems: 'center', width: '19%' },
+  serviceShortcutIcon: { width: 48, height: 48, borderRadius: 24, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginBottom: 7 },
+  serviceShortcutLabel: { fontSize: 10.5, fontWeight: '700', textAlign: 'center' },
   earningsStrip: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginBottom: 20, padding: 12, borderRadius: 14, gap: 10 },
   earningsIconWrap: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   earningsText: { flex: 1, fontSize: 12.5, fontWeight: '600' },
