@@ -63,10 +63,10 @@ function MainTabs() {
       tabBar={(props) => <AnimatedTabBar {...props} />}
     >
       <Tab.Screen name="DashboardTab" component={DashboardScreen} options={{ title: 'Home' }} />
-      <Tab.Screen name="Savings" component={SavingsScreen} options={{ title: 'Wealth' }} />
-      <Tab.Screen name="Loans" component={LoanScreen} options={{ title: 'Finance' }} />
-      <Tab.Screen name="Rewards" component={RewardsScreen} options={{ title: 'Rewards' }} />
-      <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: 'Me' }} />
+      <Tab.Screen name="Cards" component={CardScreen} options={{ title: 'Cards' }} />
+      <Tab.Screen name="QRPay" component={QRPayScreen} options={{ title: 'Scan & Pay' }} />
+      <Tab.Screen name="History" component={HistoryScreen} options={{ title: 'History' }} />
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile' }} />
     </Tab.Navigator>
   );
 }
