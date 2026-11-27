@@ -106,11 +106,7 @@ export default function NotificationsScreen({ navigation }) {
 
   useFocusEffect(
     useCallback(() => {
-      let active = true;
       loadNotifications().catch(() => {});
-      return () => {
-        active = false;
-      };
     }, [loadNotifications])
   );
 
@@ -296,7 +292,7 @@ export default function NotificationsScreen({ navigation }) {
                   </View>
                   <View style={styles.itemContent}>
                     <View style={styles.titleRow}>
-                      <Text style={[styles.title, { color: theme.text, fontWeight: isUnread ? '800' : '650' }]} numberOfLines={2}>
+                      <Text style={[styles.title, { color: theme.text, fontWeight: isUnread ? '800' : '600' }]} numberOfLines={2}>
                         {item.title}
                       </Text>
                       {isUnread && <View style={[styles.unreadDot, { backgroundColor: theme.primary }]} />}
@@ -362,7 +358,7 @@ const styles = StyleSheet.create({
   headerIcon: { width: 38, height: 38, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(32,201,243,0.12)' },
   tabRow: { flexDirection: 'row', paddingHorizontal: 20, gap: 10, marginBottom: 17 },
   tab: { flex: 1, minHeight: 45, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, borderRadius: 14, borderWidth: 1 },
-  tabLabel: { fontSize: 12.5, fontWeight: '750', marginLeft: 7 },
+  tabLabel: { fontSize: 12.5, fontWeight: '700', marginLeft: 7 },
   tabBadge: { minWidth: 19, height: 19, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginLeft: 7, paddingHorizontal: 4 },
   tabBadgeText: { fontSize: 10, fontWeight: '800' },
   actionsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22, marginBottom: 11 },
