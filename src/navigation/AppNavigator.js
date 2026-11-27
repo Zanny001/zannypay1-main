@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { NavigationContainer, DefaultTheme, DarkTheme, createNavigationContainerRef } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useWallet } from '../context/WalletContext';
@@ -165,6 +166,8 @@ export default function AppNavigator() {
   const { scheme } = useTheme();
 
   useEffect(() => {
+    if (Platform.OS === 'web') return undefined;
+
     const handleResponse = (response) => {
       if (!response) return;
       const requestId = response.notification?.request?.identifier;
