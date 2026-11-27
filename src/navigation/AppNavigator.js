@@ -1,5 +1,6 @@
-import React from 'react';
-import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
+import React, { useEffect } from 'react';
+import { NavigationContainer, DefaultTheme, DarkTheme, createNavigationContainerRef } from '@react-navigation/native';
+import * as Notifications from 'expo-notifications';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useWallet } from '../context/WalletContext';
@@ -48,6 +49,38 @@ import BudgetScreen from '../screens/BudgetScreen';
 import KYCScreen from '../screens/KYCScreen';
 import ReferralScreen from '../screens/ReferralScreen';
 import DisputesScreen from '../screens/DisputesScreen';
+
+
+const navigationRef = createNavigationContainerRef();
+let pendingPushData = null;
+let lastHandledPushId = null;
+
+function navigateFromPush(data) {
+  if (!data || typeof data.type !== 'string') return;
+  const destinations = {
+    chat_reply: 'SupportChat',
+    kyc_approved: 'KYC',
+    kyc_rejected: 'KYC',
+    dispute_resolved: 'Disputes',
+    card_frozen: 'Cards',
+    card_funded: 'Cards',
+    recurring_transfer_sent: 'RecurringTransfers',
+    recurring_transfer_failed: 'RecurringTransfers',
+    recurring_transfer_paused: 'RecurringTransfers',
+    transfer_sent: 'History',
+    transfer_received: 'History',
+    bill_paid: 'History',
+    airtime_purchased: 'History',
+    transaction_reversed: 'History',
+    account_frozen: 'Security',
+    account_unfrozen: 'Security',
+    fraud_alert: 'Security',
+  };
+  const destination = destinations[data.type];
+  if (!destination) return;
+  if (navigationRef.isReady()) navigationRef.navigate(destination);
+  else pendingPushData = data;
+}
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -131,13 +164,44 @@ export default function AppNavigator() {
   const { loading, onboarded, isAuthenticated } = useWallet();
   const { scheme } = useTheme();
 
+  useEffect(() => {
+    const handleResponse = (response) => {
+      if (!response) return;
+      const requestId = response.notification?.request?.identifier;
+      if (requestId && requestId === lastHandledPushId) return;
+      lastHandledPushId = requestId || lastHandledPushId;
+      const data = response.notification?.request?.content?.data;
+      if (!isAuthenticated) {
+        pendingPushData = data || null;
+        return;
+      }
+      navigateFromPush(data);
+    };
+
+    const subscription = Notifications.addNotificationResponseReceivedListener(handleResponse);
+    Notifications.getLastNotificationResponseAsync()
+      .then(handleResponse)
+      .catch(() => {});
+    return () => subscription.remove();
+  }, [isAuthenticated]);
+
   if (loading) return <SplashScreen />;
   if (!onboarded) return <OnboardingScreen />;
 
   const navTheme = scheme === 'dark' ? DarkTheme : DefaultTheme;
 
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer
+      ref={navigationRef}
+      theme={navTheme}
+      onReady={() => {
+        if (isAuthenticated && pendingPushData) {
+          const data = pendingPushData;
+          pendingPushData = null;
+          navigateFromPush(data);
+        }
+      }}
+    >
       {isAuthenticated ? <MainStack /> : <AuthStack />}
     </NavigationContainer>
   );
