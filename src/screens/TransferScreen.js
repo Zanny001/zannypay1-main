@@ -76,7 +76,9 @@ export default function TransferScreen({ navigation, route }) {
 
   const recentTransfers = useMemo(() => {
     const transferTxns = (transactions || []).filter(
-      (t) => t.type === 'debit' && (t.category || '').toLowerCase() === 'transfer' && t.recipientAccount
+      (t) => t.type === 'debit' &&
+        ['transfer', 'external_bank_transfer'].includes((t.category || '').toLowerCase()) &&
+        t.recipientAccount
     );
     const seen = new Set();
     const items = [];
@@ -85,7 +87,7 @@ export default function TransferScreen({ navigation, route }) {
       seen.add(t.recipientAccount);
       items.push({
         id: t.id,
-        name: (t.title || '').replace(/^Transfer to /, ''),
+        name: (t.title || '').replace(/^(?:Transfer to |Bank transfer to )/i, ''),
         acc: t.recipientAccount,
         bank: t.bank || null,
         date: formatDate(t.createdAt).split(' · ')[0],
@@ -254,16 +256,6 @@ export default function TransferScreen({ navigation, route }) {
       alert('Verify Account', 'Select a bank and enter a valid 10-digit account number. Wait for the account name to be confirmed before continuing.');
       return;
     }
-    // Do not collect a transaction PIN or submit an external payout until
-    // the backend has a verified disbursement provider. The account-name
-    // lookup is live, but name resolution alone is not a money-transfer rail.
-    if (tab === 'bank') {
-      alert(
-        'Bank Transfers Unavailable',
-        'The recipient account can be verified, but outgoing bank transfers are not yet connected to a live payout provider. You can still send money to another ZannyPay account.',
-      );
-      return;
-    }
     if (parseFloat(amount) > balance) {
       alert('Insufficient Funds', 'You do not have enough balance for this transfer.');
       return;
@@ -291,12 +283,24 @@ export default function TransferScreen({ navigation, route }) {
     setShowPinModal(false);
     setPin('');
 
-    if (!res.ok) {
-      alert('Transfer Failed', res.error);
+    if (res.pending) {
+      const referenceText = res.reference ? ` Reference: ${res.reference}.` : '';
+      alert(
+        'Transfer Processing',
+        `${res.message || 'Your bank transfer is still being confirmed.'}${referenceText} Do not submit this payment again. Check your transaction history for updates.`,
+      );
       return;
     }
 
-    setSuccessInfo({ message: `Sent ${formatCurrency(amount)} to ${account}.`, txn: res.txn });
+    if (!res.ok) {
+      alert(
+        res.uncertain ? 'Transfer Status Unconfirmed' : 'Transfer Failed',
+        res.error || 'The transfer could not be confirmed.',
+      );
+      return;
+    }
+
+    setSuccessInfo({ message: `Sent ${formatCurrency(amount)} to ${resolvedRecipient?.name || account}.`, txn: res.txn });
   };
 
   const renderRecentItem = (item) => (
