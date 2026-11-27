@@ -2,7 +2,16 @@ import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { SyncEngine } from './SyncEngine';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://zannypay-backend.onrender.com/api/v1';
+// Web must use a same-origin reverse proxy (e.g. /api/v1) so browsers do not
+// treat the HttpOnly session cookie as a blocked third-party cookie. Native
+// clients continue to call the hosted API directly.
+// Browser sessions require the same-origin reverse proxy so the Secure
+// HttpOnly cookie is first-party. Never let a build-time API override send
+// browser credentials directly to the hosted API.
+const API_URL =
+  Platform.OS === 'web'
+    ? '/api/v1'
+    : process.env.EXPO_PUBLIC_API_URL || 'https://zannypay-backend.onrender.com/api/v1';
 
 // Browser storage is not an acceptable place for a bearer session token:
 // any script executing in the origin can read localStorage. Web sign-in
@@ -133,7 +142,10 @@ export const apiGet = async (endpoint) => {
   try {
     const headers = await buildHeaders();
     devLog(`[API GET] Request: ${safeEndpointLabel(endpoint)}`);
-    const response = await fetch(`${API_URL}${endpoint}`, { headers });
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      headers,
+      credentials: Platform.OS === 'web' ? 'include' : 'omit',
+    });
     const data = await response.json().catch(() => ({}));
     devLog(`[API GET] Response from ${safeEndpointLabel(endpoint)}:`, redact(data));
     if (!response.ok) throw new Error(extractErrorMessage(data, 'API GET request failed'));
@@ -167,6 +179,7 @@ const apiWrite = async (method, endpoint, payload, fallbackConfig, isRetry) => {
     const response = await fetch(`${API_URL}${endpoint}`, {
       method,
       headers,
+      credentials: Platform.OS === 'web' ? 'include' : 'omit',
       body: JSON.stringify(payload),
     });
     const data = await response.json().catch(() => ({}));

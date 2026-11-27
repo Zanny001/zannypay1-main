@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { saveJSON, loadJSON } from '../utils/storage';
 import { apiGet, apiPost, apiPatch, apiDelete, getSavedToken, saveToken, clearToken, generateIdempotencyKey } from '../services/apiClient';
 import { logLoginActivity } from '../utils/loginActivity';
@@ -181,23 +181,74 @@ export function WalletProvider({ children }) {
 
         localInvoicesRef.current = savedInvoices || [];
 
-        setUser(savedUser);
-        setBalance(toNumber(savedBalance));
-        setTransactions(savedTxns);
         setOnboarded(savedOnboarded);
-        setSavingsGoals(savedGoals || []);
-        setLoan(savedLoan || null);
         setIsBalanceHidden(savedHideBalance || false);
 
-        if (savedToken && savedUser) {
-          setToken(savedToken);
-          setIsAuthenticated(true);
-          await syncWallet();
-          drainOfflineQueue();
-          registerForPushNotifications(); // re-registers on every cold start so a token rotated by Expo/the OS stays current
+        if (Platform.OS === 'web') {
+          localInvoicesRef.current = [];
+          // Never hydrate private customer data from browser storage before
+          // the server has validated the HttpOnly session cookie.
+          setUser(null);
+          setBalance(STARTING_BALANCE);
+          setTransactions([]);
+          setSavingsGoals([]);
+          setLoan(null);
+          setToken(null);
+
+          const session = await apiGet('/auth/web/session');
+          if (session?.authenticated && session.user) {
+            setUser(session.user);
+            await saveJSON(STORAGE_KEYS.USER, session.user);
+            setIsAuthenticated(true);
+            await syncWallet();
+          } else {
+            setIsAuthenticated(false);
+            localInvoicesRef.current = [];
+            await Promise.all([
+              saveJSON(STORAGE_KEYS.USER, null),
+              saveJSON(STORAGE_KEYS.BALANCE, STARTING_BALANCE),
+              saveJSON(STORAGE_KEYS.TXNS, []),
+              saveJSON(STORAGE_KEYS.SAVINGS_GOALS, []),
+              saveJSON(STORAGE_KEYS.LOAN, null),
+              saveJSON(STORAGE_KEYS.LOCAL_INVOICES, []),
+            ]);
+          }
+        } else {
+          setUser(savedUser);
+          setBalance(toNumber(savedBalance));
+          setTransactions(savedTxns);
+          setSavingsGoals(savedGoals || []);
+          setLoan(savedLoan || null);
+
+          if (savedToken && savedUser) {
+            setToken(savedToken);
+            setIsAuthenticated(true);
+            await syncWallet();
+            drainOfflineQueue();
+            registerForPushNotifications(); // re-registers on every cold start so a token rotated by Expo/the OS stays current
+          }
         }
       } catch (error) {
         console.error('Storage load error:', error);
+        if (Platform.OS === 'web') {
+          // Fail closed if session restoration cannot reach the server.
+          setIsAuthenticated(false);
+          setUser(null);
+          setToken(null);
+          setBalance(STARTING_BALANCE);
+          setTransactions([]);
+          setSavingsGoals([]);
+          setLoan(null);
+          localInvoicesRef.current = [];
+          await Promise.all([
+            saveJSON(STORAGE_KEYS.USER, null),
+            saveJSON(STORAGE_KEYS.BALANCE, STARTING_BALANCE),
+            saveJSON(STORAGE_KEYS.TXNS, []),
+            saveJSON(STORAGE_KEYS.SAVINGS_GOALS, []),
+            saveJSON(STORAGE_KEYS.LOAN, null),
+            saveJSON(STORAGE_KEYS.LOCAL_INVOICES, []),
+          ]);
+        }
       } finally {
         setLoading(false);
       }
@@ -211,7 +262,8 @@ export function WalletProvider({ children }) {
 
   const signup = useCallback(async ({ name, email, phone, pin, referredByCode }) => {
     try {
-      const res = await apiPost('/auth/signup', {
+      const isWeb = Platform.OS === 'web';
+      const res = await apiPost(isWeb ? '/auth/web/signup' : '/auth/signup', {
         name,
         email: email?.trim(),
         phone,
@@ -219,9 +271,9 @@ export function WalletProvider({ children }) {
         ...(referredByCode ? { referredByCode: referredByCode.trim().toUpperCase() } : {}),
       });
       const validToken = res?.access_token || res?.token;
-      if (res && validToken) {
-        await saveToken(validToken);
-        setToken(validToken);
+      if (res && (isWeb ? res.user : validToken)) {
+        if (!isWeb) await saveToken(validToken);
+        setToken(isWeb ? null : validToken);
         setUser(res.user);
         setIsAuthenticated(true);
         await saveJSON(STORAGE_KEYS.USER, res.user);
@@ -230,7 +282,7 @@ export function WalletProvider({ children }) {
           setBalance(processedBalance);
           await saveJSON(STORAGE_KEYS.BALANCE, processedBalance);
         }
-        registerForPushNotifications();
+        if (!isWeb) registerForPushNotifications();
         return { ok: true };
       }
       return { ok: false, error: res?.error || 'Registration failed.' };
@@ -241,17 +293,18 @@ export function WalletProvider({ children }) {
 
   const login = useCallback(async (phone, pin) => {
     try {
-      const res = await apiPost('/auth/login', { phone, pin });
+      const isWeb = Platform.OS === 'web';
+      const res = await apiPost(isWeb ? '/auth/web/login' : '/auth/login', { phone, pin });
       const validToken = res?.access_token || res?.token;
-      if (res && validToken) {
-        await saveToken(validToken);
-        setToken(validToken);
+      if (res && (isWeb ? res.user : validToken)) {
+        if (!isWeb) await saveToken(validToken);
+        setToken(isWeb ? null : validToken);
         setUser(res.user);
         setIsAuthenticated(true);
         await saveJSON(STORAGE_KEYS.USER, res.user);
         await syncWallet();
         await logLoginActivity();
-        registerForPushNotifications();
+        if (!isWeb) registerForPushNotifications();
         return { ok: true };
       }
       return { ok: false, error: res?.error || 'Invalid telephone number or PIN.' };
@@ -290,6 +343,13 @@ export function WalletProvider({ children }) {
   }, [syncWallet]);
 
   const logout = useCallback(async () => {
+    if (Platform.OS === 'web') {
+      try {
+        await apiPost('/auth/web/logout', {});
+      } catch (error) {
+        console.error('Browser session revocation failed:', error.message);
+      }
+    }
     setIsAuthenticated(false);
     setToken(null);
     setUser(null);
@@ -299,6 +359,17 @@ export function WalletProvider({ children }) {
     setLoan(null);
     setServerCreditLimit(null);
     await clearToken();
+    // Clear cached customer data as well as credentials, so another person
+    // using this browser/device cannot see the previous account's snapshot.
+    localInvoicesRef.current = [];
+    await Promise.all([
+      saveJSON(STORAGE_KEYS.USER, null),
+      saveJSON(STORAGE_KEYS.BALANCE, STARTING_BALANCE),
+      saveJSON(STORAGE_KEYS.TXNS, []),
+      saveJSON(STORAGE_KEYS.SAVINGS_GOALS, []),
+      saveJSON(STORAGE_KEYS.LOAN, null),
+      saveJSON(STORAGE_KEYS.LOCAL_INVOICES, []),
+    ]);
     unregisterPushNotifications(); // best-effort — see pushNotifications.js; must never block or fail logout itself
     // An explicit logout means fully logged out — the biometric
     // convenience credential goes with it, not just the active session.
