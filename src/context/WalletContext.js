@@ -377,8 +377,8 @@ export function WalletProvider({ children }) {
     if (user?.phone) await BiometricAuth.clearFor(user.phone);
     fundingAttemptRef.current = null;
     await saveJSON(STORAGE_KEYS.FUNDING_ATTEMPT, null);
-    transferAttemptRef.current = null;
-    await saveJSON(STORAGE_KEYS.TRANSFER_ATTEMPT, null);
+    // Keep unresolved transfer attempts across logout. The stored userId
+    // scopes the attempt; a different account clears it on the next transfer.
   }, [user]);
 
   const transferMoney = useCallback(async ({ recipientAccount, amount, pin, bank, bankCode, note, recipientName, idempotencyKey }) => {
@@ -465,6 +465,21 @@ export function WalletProvider({ children }) {
 
       return { ok: false, error: res?.error || res?.message || 'Transfer was rejected.' };
     } catch (err) {
+      // A normal 4xx response is a definitive rejection (for example an
+      // invalid PIN, frozen account, insufficient funds, or rejected request).
+      // The backend has not left an unresolved payout in these cases.
+      // Keep ambiguous timeout/conflict/rate-limit/server failures protected.
+      const status = Number(err?.status);
+      const definitiveRejection =
+        status >= 400 &&
+        status < 500 &&
+        ![408, 409, 425, 429].includes(status);
+      if (definitiveRejection) {
+        transferAttemptRef.current = null;
+        await saveJSON(STORAGE_KEYS.TRANSFER_ATTEMPT, null);
+        return { ok: false, error: err.message || 'Transfer was rejected.' };
+      }
+
       // Preserve the exact idempotency key after network/timeout errors. A
       // retry with unchanged details will recover the original server result.
       return {
