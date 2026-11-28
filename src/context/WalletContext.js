@@ -19,6 +19,7 @@ const STORAGE_KEYS = {
   HIDE_BALANCE: 'zannypay:hideBalance',
   LOCAL_INVOICES: 'zannypay:localInvoices',
   FUNDING_ATTEMPT: 'zannypay:fundingAttempt',
+  TRANSFER_ATTEMPT: 'zannypay:transferAttempt',
 };
 
 const STARTING_BALANCE = 0;
@@ -376,26 +377,50 @@ export function WalletProvider({ children }) {
     if (user?.phone) await BiometricAuth.clearFor(user.phone);
     fundingAttemptRef.current = null;
     await saveJSON(STORAGE_KEYS.FUNDING_ATTEMPT, null);
+    // Keep unresolved transfer attempts across logout. The stored userId
+    // scopes the attempt; a different account clears it on the next transfer.
   }, [user]);
 
   const transferMoney = useCallback(async ({ recipientAccount, amount, pin, bank, bankCode, note, recipientName, idempotencyKey }) => {
-    try {
-      const fingerprint = JSON.stringify({
-        recipientAccount,
-        amount: parseFloat(amount),
-        bank: bank || null,
-        bankCode: bankCode || null,
-        note: note || null,
-      });
-      const activeAttempt = transferAttemptRef.current;
-      const stableKey = idempotencyKey || (
-        activeAttempt?.fingerprint === fingerprint
-          ? activeAttempt.key
-          : generateIdempotencyKey()
-      );
-      transferAttemptRef.current = { fingerprint, key: stableKey };
+    const fingerprint = JSON.stringify({
+      recipientAccount,
+      amount: parseFloat(amount),
+      bank: bank || null,
+      bankCode: bankCode || null,
+      note: note || null,
+    });
 
-      const payload = {
+    try {
+      let attempt = transferAttemptRef.current || await loadJSON(STORAGE_KEYS.TRANSFER_ATTEMPT, null);
+      if (attempt?.userId && attempt.userId !== user?.id) {
+        attempt = null;
+        transferAttemptRef.current = null;
+        await saveJSON(STORAGE_KEYS.TRANSFER_ATTEMPT, null);
+      }
+
+      // Never let a second transfer overwrite an unresolved first payout.
+      // The same attempt key survives app restarts and ambiguous responses.
+      if (attempt && attempt.fingerprint !== fingerprint) {
+        return {
+          ok: false,
+          pending: true,
+          reference: attempt.reference || null,
+          error: 'A previous transfer is still awaiting confirmation. Check or retry that exact transfer before starting another one.',
+        };
+      }
+
+      if (!attempt) {
+        attempt = {
+          fingerprint,
+          key: idempotencyKey || generateIdempotencyKey(),
+          userId: user?.id || null,
+          reference: null,
+        };
+      }
+      transferAttemptRef.current = attempt;
+      await saveJSON(STORAGE_KEYS.TRANSFER_ATTEMPT, attempt);
+
+      const res = await apiPost('/wallet/transfer', {
         recipientAccount,
         amount: parseFloat(amount),
         pin,
@@ -403,20 +428,67 @@ export function WalletProvider({ children }) {
         bankCode,
         note,
         recipientName,
-        idempotencyKey: stableKey,
-      };
-      const res = await apiPost('/wallet/transfer', payload, { type: 'transfer', amount, account: recipientAccount });
-      if (res && res.success) {
+        idempotencyKey: attempt.key,
+      }, { type: 'transfer', amount, account: recipientAccount });
+
+      if (res?.reference) {
+        attempt = { ...attempt, reference: res.reference };
+        transferAttemptRef.current = attempt;
+        await saveJSON(STORAGE_KEYS.TRANSFER_ATTEMPT, attempt);
+      }
+
+      if (res?.status === 'pending') {
+        await syncWallet();
+        return {
+          ok: true,
+          pending: true,
+          reference: res.reference || attempt.reference || null,
+          transactionId: res.transactionId || null,
+          message: res.message || 'Your transfer is being confirmed. Do not submit it again.',
+        };
+      }
+
+      if (res?.status === 'failed') {
         transferAttemptRef.current = null;
+        await saveJSON(STORAGE_KEYS.TRANSFER_ATTEMPT, null);
+        await syncWallet();
+        return { ok: false, error: res?.message || 'The bank transfer failed and the wallet funds have been returned.' };
+      }
+
+      if (res?.success) {
+        transferAttemptRef.current = null;
+        await saveJSON(STORAGE_KEYS.TRANSFER_ATTEMPT, null);
         const data = await syncWallet();
         const txn = data?.transactions?.find((t) => t.id === res.transactionId) || null;
         return { ok: true, txn, transactionId: res.transactionId };
       }
-      return { ok: false, error: res?.error || 'Transfer was rejected.' };
+
+      return { ok: false, error: res?.error || res?.message || 'Transfer was rejected.' };
     } catch (err) {
-      return { ok: false, error: err.message };
+      // A normal 4xx response is a definitive rejection (for example an
+      // invalid PIN, frozen account, insufficient funds, or rejected request).
+      // The backend has not left an unresolved payout in these cases.
+      // Keep ambiguous timeout/conflict/rate-limit/server failures protected.
+      const status = Number(err?.status);
+      const definitiveRejection =
+        status >= 400 &&
+        status < 500 &&
+        ![408, 409, 425, 429].includes(status);
+      if (definitiveRejection) {
+        transferAttemptRef.current = null;
+        await saveJSON(STORAGE_KEYS.TRANSFER_ATTEMPT, null);
+        return { ok: false, error: err.message || 'Transfer was rejected.' };
+      }
+
+      // Preserve the exact idempotency key after network/timeout errors. A
+      // retry with unchanged details will recover the original server result.
+      return {
+        ok: false,
+        uncertain: true,
+        error: err.message || 'Transfer status could not be confirmed. Retry the same transfer details; do not create a new one.',
+      };
     }
-  }, [syncWallet]);
+  }, [syncWallet, user?.id]);
 
   // VTpass bill services are called directly through authenticated backend
   // endpoints. Sensitive biller identifiers and transaction PINs are never

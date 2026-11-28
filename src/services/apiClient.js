@@ -184,7 +184,11 @@ const apiWrite = async (method, endpoint, payload, fallbackConfig, isRetry) => {
     });
     const data = await response.json().catch(() => ({}));
     devLog(`[API ${method}] Response from ${safeEndpointLabel(endpoint)}:`, redact(data));
-    if (!response.ok) throw new Error(extractErrorMessage(data, `API ${method} request failed`));
+    if (!response.ok) {
+      const error = new Error(extractErrorMessage(data, `API ${method} request failed`));
+      error.status = response.status;
+      throw error;
+    }
     return data;
   } catch (error) {
     console.error(`[API ${method} Error] ${safeEndpointLabel(endpoint)}:`, error.message);
